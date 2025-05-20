@@ -2,6 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>This app uses Bluetooth to connect to your wearable sensor device.</string>
+    <key>NSBluetoothPeripheralUsageDescription</key>
+    <string>Bluetooth access is needed to receive live sensor data.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Location access is required for Bluetooth scanning.</string>
+
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
