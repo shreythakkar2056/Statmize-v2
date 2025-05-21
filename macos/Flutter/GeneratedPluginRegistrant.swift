@@ -5,8 +5,8 @@
 import FlutterMacOS
 import Foundation
 
-import flutter_blue
+import reactive_ble_mobile
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
-  FlutterBluePlugin.register(with: registry.registrar(forPlugin: "FlutterBluePlugin"))
+  ReactiveBlePlugin.register(with: registry.registrar(forPlugin: "ReactiveBlePlugin"))
 }

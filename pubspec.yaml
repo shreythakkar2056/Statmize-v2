@@ -10,12 +10,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_blue:
-    git:
-      url: https://github.com/pauldemarco/flutter_blue.git
-      ref: master
+  flutter_reactive_ble: ^5.0.2
   permission_handler: ^11.3.0
   cupertino_icons: ^1.0.8
+
 
 
 dev_dependencies:

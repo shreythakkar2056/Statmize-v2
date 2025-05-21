@@ -1,85 +1,138 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_blue/flutter_blue.dart';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
-void main() => runApp(MyApp());
+import 'package:flutter/material.dart';
+import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
+
+void main() {
+  runApp(const MyApp());
+}
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        title: 'BLE Sports Tracker',
-        theme: ThemeData(primarySwatch: Colors.blue),
-        home: BLEHome());
+      title: 'BLE Sports Tracker',
+      theme: ThemeData(primarySwatch: Colors.blue),
+      home: const BLEHome(),
+    );
   }
 }
 
 class BLEHome extends StatefulWidget {
+  const BLEHome({super.key});
   @override
-  _BLEHomeState createState() => _BLEHomeState();
+  State<BLEHome> createState() => _BLEHomeState();
 }
 
 class _BLEHomeState extends State<BLEHome> {
-  FlutterBlue flutterBlue = FlutterBlue.instance;
-  BluetoothDevice? connectedDevice;
-  BluetoothCharacteristic? characteristic;
+  final flutterReactiveBle = FlutterReactiveBle();
+
+  final deviceName = "ESP32_IMU";
+  final serviceUuid = Uuid.parse("4fafc201-1fb5-459e-8fcc-c5c9c331914b");
+  final characteristicUuid = Uuid.parse("beb5483e-36e1-4688-b7f5-ea07361b26a8");
+
+  DiscoveredDevice? _foundDevice;
+  StreamSubscription<DiscoveredDevice>? _scanStream;
+  StreamSubscription<ConnectionStateUpdate>? _connection;
+  StreamSubscription<List<int>>? _notificationStream;
+
   String sport = "Unknown";
   double speed = 0.0;
   double angle = 0.0;
   double power = 0.0;
   String direction = "Unknown";
 
+  bool isConnecting = false;
+  bool isConnected = false;
+
+  String? selectedSport;
+
   @override
   void initState() {
     super.initState();
-    scanAndConnect();
+    startScan();
   }
 
-  void scanAndConnect() {
-    flutterBlue.startScan(timeout: Duration(seconds: 4));
+  @override
+  void dispose() {
+    _scanStream?.cancel();
+    _connection?.cancel();
+    _notificationStream?.cancel();
+    super.dispose();
+  }
 
-    var subscription = flutterBlue.scanResults.listen((results) {
-      for (ScanResult r in results) {
-        if (r.device.name == 'ESP32_IMU') {
-          flutterBlue.stopScan();
-          connectToDevice(r.device);
-          break;
-        }
+  void startScan() {
+    _scanStream = flutterReactiveBle.scanForDevices(withServices: []).listen((device) {
+      if (device.name == deviceName) {
+        _foundDevice = device;
+        _scanStream?.cancel();
+        connectToDevice(device);
+        setState(() {});
       }
+    }, onError: (error) {
+      print("Scan error: $error");
     });
   }
 
-  void connectToDevice(BluetoothDevice device) async {
-    await device.connect();
+  void connectToDevice(DiscoveredDevice device) {
+    if (isConnecting || isConnected) return;
+
     setState(() {
-      connectedDevice = device;
+      isConnecting = true;
     });
 
-    discoverServices();
+    _connection = flutterReactiveBle
+        .connectToDevice(id: device.id, connectionTimeout: const Duration(seconds: 5))
+        .listen((connectionState) {
+      if (connectionState.connectionState == DeviceConnectionState.connected) {
+        setState(() {
+          isConnecting = false;
+          isConnected = true;
+        });
+        subscribeToCharacteristic(device.id);
+      } else if (connectionState.connectionState == DeviceConnectionState.disconnected) {
+        setState(() {
+          isConnected = false;
+          isConnecting = false;
+          sport = "Disconnected";
+        });
+        startScan();
+      }
+    }, onError: (error) {
+      setState(() {
+        isConnecting = false;
+        isConnected = false;
+        sport = "Connection Error";
+      });
+      print("Connection error: $error");
+      startScan();
+    });
   }
 
-  void discoverServices() async {
-    if (connectedDevice == null) return;
-    List<BluetoothService> services = await connectedDevice!.discoverServices();
-    services.forEach((service) {
-      if (service.uuid.toString() == "4fafc201-1fb5-459e-8fcc-c5c9c331914b") {
-        service.characteristics.forEach((c) {
-          if (c.uuid.toString() == "beb5483e-36e1-4688-b7f5-ea07361b26a8") {
-            characteristic = c;
-            c.setNotifyValue(true);
-            c.value.listen((value) {
-              String data = utf8.decode(value);
-              processData(data);
-            });
-          }
-        });
-      }
-    });
+  void subscribeToCharacteristic(String deviceId) {
+    final characteristic = QualifiedCharacteristic(
+      serviceId: serviceUuid,
+      characteristicId: characteristicUuid,
+      deviceId: deviceId,
+    );
+
+    _notificationStream = flutterReactiveBle.subscribeToCharacteristic(characteristic).listen(
+          (data) {
+        String decodedData = utf8.decode(data);
+        processData(decodedData);
+      },
+      onError: (error) {
+        print("Notification error: $error");
+      },
+    );
   }
 
   void processData(String data) {
-    List<String> parts = data.split(',');
+    // Data format: "ax,ay,az,gx,gy,gz"
+    List<String> parts = data.trim().split(',');
     if (parts.length != 6) return;
 
     double ax = double.tryParse(parts[0]) ?? 0.0;
@@ -89,29 +142,37 @@ class _BLEHomeState extends State<BLEHome> {
     double gy = double.tryParse(parts[4]) ?? 0.0;
     double gz = double.tryParse(parts[5]) ?? 0.0;
 
-    // Compute metrics
     double resultantAccel = sqrt(ax * ax + ay * ay + az * az);
     double resultantGyro = sqrt(gx * gx + gy * gy + gz * gz);
 
-    // Example computations (adjust thresholds as needed)
-    if (resultantGyro > 5.0) {
-      sport = "Cricket";
-      speed = resultantGyro * 10; // Placeholder formula
-      angle = atan2(ay, ax) * (180 / pi);
-      power = resultantAccel * 5; // Placeholder formula
-      direction = gx > 0 ? "Right" : "Left";
-    } else if (resultantAccel > 2.0) {
-      sport = "Badminton";
-      speed = resultantAccel * 8; // Placeholder formula
-      angle = atan2(az, ay) * (180 / pi);
-      power = resultantGyro * 4; // Placeholder formula
-      direction = gy > 0 ? "Forward" : "Backward";
+    if (selectedSport == null) {
+      sport = "Select a sport";
+      speed = 0.0;
+      angle = 0.0;
+      power = 0.0;
+      direction = "Unknown";
     } else {
-      sport = "Lawn Tennis";
-      speed = resultantGyro * 6; // Placeholder formula
-      angle = atan2(ax, az) * (180 / pi);
-      power = resultantAccel * 3; // Placeholder formula
-      direction = gz > 0 ? "Upward" : "Downward";
+      sport = selectedSport!;
+      switch (selectedSport) {
+        case 'Cricket':
+          speed = resultantGyro * 10;
+          angle = atan2(ay, ax) * (180 / pi);
+          power = resultantAccel * 5;
+          direction = gx > 0 ? "Right" : "Left";
+          break;
+        case 'Badminton':
+          speed = resultantAccel * 8;
+          angle = atan2(az, ay) * (180 / pi);
+          power = resultantGyro * 4;
+          direction = gy > 0 ? "Forward" : "Backward";
+          break;
+        case 'Lawn Tennis':
+          speed = resultantGyro * 6;
+          angle = atan2(ax, az) * (180 / pi);
+          power = resultantAccel * 3;
+          direction = gz > 0 ? "Upward" : "Downward";
+          break;
+      }
     }
 
     setState(() {});
@@ -120,23 +181,45 @@ class _BLEHomeState extends State<BLEHome> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(title: Text("BLE Sports Tracker")),
-        body: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: connectedDevice == null
-              ? Center(child: Text("Scanning for devices..."))
-              : Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Connected to: ${connectedDevice!.name}"),
-              SizedBox(height: 20),
-              Text("Sport: $sport"),
-              Text("Speed: ${speed.toStringAsFixed(2)}"),
-              Text("Angle: ${angle.toStringAsFixed(2)}°"),
-              Text("Power: ${power.toStringAsFixed(2)}"),
-              Text("Direction: $direction"),
-            ],
-          ),
-        ));
+      appBar: AppBar(title: const Text("STATmize")),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: _foundDevice == null
+            ? const Center(child: Text("Scanning for devices..."))
+            : Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Found Device: ${_foundDevice!.name}"),
+            const SizedBox(height: 10),
+            Text("Status: ${isConnecting ? "Connecting..." : (isConnected ? "Connected" : "Disconnected")}"),
+            const SizedBox(height: 20),
+            const Text("Select Sport:"),
+            DropdownButton<String>(
+              hint: const Text("Select Sport"),
+              value: selectedSport,
+              items: ['Cricket', 'Badminton', 'Lawn Tennis'].map((sport) {
+                return DropdownMenuItem(
+                  value: sport,
+                  child: Text(sport),
+                );
+              }).toList(),
+              onChanged: (val) {
+                setState(() {
+                  selectedSport = val;
+                });
+              },
+            ),
+            const SizedBox(height: 20),
+            Text("Sport: $sport"),
+            Text("Speed: ${speed.toStringAsFixed(2)}"),
+            Text("Angle: ${angle.toStringAsFixed(2)}°"),
+            Text("Power: ${power.toStringAsFixed(2)}"),
+            Text("Direction: $direction"),
+          ],
+        ),
+      ),
+    );
   }
 }
+
+

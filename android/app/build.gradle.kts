@@ -6,9 +6,17 @@ plugins {
 }
 
 android {
-    namespace = "com.example.app"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    namespace = "com.example.app"               // Replace with your app's namespace
+    compileSdk = flutter.compileSdkVersion      // Uses Flutter compileSdkVersion
+    ndkVersion = "27.0.12077973"                 // Set your NDK version if needed
+
+    defaultConfig {
+        applicationId = "com.example.app"        // Replace with your app ID
+        minSdk = flutter.minSdkVersion            // Flutter min SDK version
+        targetSdk = flutter.targetSdkVersion      // Flutter target SDK version
+        versionCode = flutter.versionCode         // App version code
+        versionName = flutter.versionName         // App version name
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -19,26 +27,14 @@ android {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
-    defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
-    }
-
     buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+        getByName("release") {
+            // Using debug signingConfig here, change if you have a release signing config
             signingConfig = signingConfigs.getByName("debug")
         }
     }
 }
 
 flutter {
-    source = "../.."
+    source = "../.."    // Points to the Flutter module location relative to this file
 }
