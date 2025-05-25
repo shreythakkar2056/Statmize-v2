@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.app"        // Replace with your app ID
-        minSdk = flutter.minSdkVersion            // Flutter min SDK version
+        minSdk = 31                             // Set minimum SDK to 31 for Bluetooth permissions
         targetSdk = flutter.targetSdkVersion      // Flutter target SDK version
         versionCode = flutter.versionCode         // App version code
         versionName = flutter.versionName         // App version name

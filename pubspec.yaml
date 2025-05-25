@@ -2,7 +2,7 @@ name: app
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.0+1  # This sets both versionName (1.0.0) and versionCode (1)
 
 environment:
   sdk: ^3.7.2
@@ -10,11 +10,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_reactive_ble: ^5.0.2
-  permission_handler: ^11.3.0
-  cupertino_icons: ^1.0.8
-
-
+  flutter_blue_plus: ^1.31.15
+  permission_handler: ^11.0.1
+  cupertino_icons: ^1.0.2
 
 dev_dependencies:
   flutter_test:
