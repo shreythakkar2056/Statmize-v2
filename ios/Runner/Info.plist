@@ -2,14 +2,29 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!-- Bluetooth permissions -->
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>This app needs Bluetooth access to connect to your ESP32 sports tracking device and receive real-time motion data</string>
+
+    <key>NSBluetoothPeripheralUsageDescription</key>
+    <string>This app needs Bluetooth access to connect to your ESP32 sports tracking device and receive real-time motion data</string>
+
+    <!-- Location permissions (required for BLE scanning on iOS) -->
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>This app needs location access to scan for nearby Bluetooth Low Energy devices like your ESP32 sports tracker</string>
+
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>This app needs location access to scan for nearby Bluetooth Low Energy devices like your ESP32 sports tracker</string>
+
+    <!-- Standard app configuration -->
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>App</string>
+    <string>BLE Sports Tracker</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
-    <string>com.rakesh.flutterapp</string>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
@@ -24,40 +39,6 @@
     <string>$(FLUTTER_BUILD_NUMBER)</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
-
-    <!-- BLUETOOTH PERMISSIONS -->
-    <key>NSBluetoothAlwaysUsageDescription</key>
-    <string>This app uses Bluetooth to connect to sports tracking devices</string>
-    <key>NSBluetoothPeripheralUsageDescription</key>
-    <string>This app uses Bluetooth to connect to peripheral devices</string>
-
-    <!-- LOCATION PERMISSIONS (Required for Bluetooth scanning on iOS) -->
-    <key>NSLocationWhenInUseUsageDescription</key>
-    <string>Location access is required for Bluetooth scanning</string>
-    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <string>Location access is required for Bluetooth device discovery</string>
-
-    <!-- CRITICAL: Add these for iOS 13+ -->
-    <key>NSBluetoothCentralUsageDescription</key>
-    <string>This app uses Bluetooth to connect to external devices</string>
-
-    <!-- Add background modes for Bluetooth -->
-    <key>UIBackgroundModes</key>
-    <array>
-        <string>bluetooth-central</string>
-    </array>
-
-    <key>NSLocalNetworkUsageDescription</key>
-    <string>This app requires access to the local network for debugging and development purposes.</string>
-    <key>NSBonjourServices</key>
-    <array>
-        <string>_dartobservatory._tcp</string>
-    </array>
-    <key>NSAppTransportSecurity</key>
-    <dict>
-        <key>NSAllowsLocalNetworking</key>
-        <true/>
-    </dict>
     <key>UILaunchStoryboardName</key>
     <string>LaunchScreen</string>
     <key>UIMainStoryboardFile</key>
@@ -75,9 +56,10 @@
         <string>UIInterfaceOrientationLandscapeLeft</string>
         <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
-    <key>UIApplicationSupportsIndirectInputEvents</key>
-    <true/>
     <key>CADisableMinimumFrameDurationOnPhone</key>
+    <true/>
+    <key>UIApplicationSupportsIndirectInputEvents</key>
     <true/>
 </dict>
 </plist>
+
