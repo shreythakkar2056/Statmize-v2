@@ -2,30 +2,26 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.example.app">
 
-    <!-- Permissions for Bluetooth and Location -->
-    <!-- For Android 12 and above -->
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
-        android:usesPermissionFlags="neverForLocation"
-        tools:targetApi="s" />
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"
-        tools:targetApi="s" />
-
-    <!-- For Android 11 and below -->
-    <uses-permission android:name="android.permission.BLUETOOTH"
-        android:maxSdkVersion="30" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"
-        android:maxSdkVersion="30" />
-
-    <!-- Location permissions -->
+    <!-- Bluetooth permissions for all Android versions -->
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <!-- For Android 12+ -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" tools:targetApi="31" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <!-- Location permissions (required for BLE scan on Android <12) -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
-    <!-- Ensure Bluetooth is available on the device -->
-    <uses-feature android:name="android.hardware.bluetooth_le" android:required="true"/>
+    <!-- Bluetooth Low Energy feature -->
+    <uses-feature
+        android:name="android.hardware.bluetooth_le"
+        android:required="true" />
 
     <application
         android:label="App"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        tools:targetApi="11">
 
         <!-- Permissions Handler Plugin -->
         <meta-data

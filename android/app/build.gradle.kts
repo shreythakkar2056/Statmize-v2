@@ -1,21 +1,19 @@
 plugins {
     id("com.android.application")
-    id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    kotlin("android")
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
-    namespace = "com.example.app"               // Replace with your app's namespace
-    compileSdk = flutter.compileSdkVersion      // Uses Flutter compileSdkVersion
-    ndkVersion = "27.0.12077973"                 // Set your NDK version if needed
+    namespace = "com.example.app"
+    compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.app"        // Replace with your app ID
-        minSdk = 31                             // Set minimum SDK to 31 for Bluetooth permissions
-        targetSdk = flutter.targetSdkVersion      // Flutter target SDK version
-        versionCode = flutter.versionCode         // App version code
-        versionName = flutter.versionName         // App version name
+        applicationId = "com.example.app"
+        minSdk = 21
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0"
     }
 
     compileOptions {
@@ -24,17 +22,26 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "11"
     }
 
     buildTypes {
-        getByName("release") {
-            // Using debug signingConfig here, change if you have a release signing config
-            signingConfig = signingConfigs.getByName("debug")
+        release {
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
+    }
+
+    lint {
+        checkReleaseBuilds = false
     }
 }
 
 flutter {
-    source = "../.."    // Points to the Flutter module location relative to this file
+    source = "../.."
+}
+
+dependencies {
+    implementation("androidx.window:window:1.0.0")
+    implementation("androidx.window:window-java:1.0.0")
 }
