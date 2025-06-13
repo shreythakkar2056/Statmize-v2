@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:app/main.dart';
 
 // Mock the platform check to avoid Bluetooth initialization

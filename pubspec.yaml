@@ -12,12 +12,22 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.2
   flutter_blue_plus: ^1.32.2
-  permission_handler: ^11.0.1
+  permission_handler: ^12.0.0+1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
 
 flutter:
   uses-material-design: true
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  image_path_ios: "assets/icon/app_icon.png"
+  image_path_android: "assets/icon/1024.png"
+  adaptive_icon_foreground: "assets/icon/1024.png"
+  adaptive_icon_background: "#FFFFFF"
+  

@@ -19,7 +19,7 @@
         android:required="true" />
 
     <application
-        android:label="App"
+        android:label="Statmize"
         android:icon="@mipmap/ic_launcher"
         tools:targetApi="11">
 
