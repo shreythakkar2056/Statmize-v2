@@ -3,6 +3,7 @@ import 'package:app/widgets/connection_card.dart';
 import 'package:app/services/ble_service.dart';
 import 'package:app/widgets/profile_modal.dart';
 import 'package:app/core/session_page.dart';
+import 'package:app_settings/app_settings.dart';
 
 class HomeScreen extends StatefulWidget {
   final bool isDarkMode;
@@ -28,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   };
   String debugMessage = '';
   String selectedSport = "Cricket";
+  List<dynamic> nearbyDevices = [];
 
   @override
   void initState() {
@@ -182,6 +184,29 @@ class _HomeScreenState extends State<HomeScreen> {
         debugMessage = message;
       });
       print('Debug: $message');
+      // Show snackbar if location needs to be turned on
+      if (message.toLowerCase().contains('turn on location')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Please turn on Location Services (GPS) to scan for BLE devices.'),
+            action: SnackBarAction(
+              label: 'Settings',
+              onPressed: () async {
+                try {
+                  AppSettings.openAppSettings(type: AppSettingsType.location);
+                } catch (e) {}
+              },
+            ),
+            duration: Duration(seconds: 6),
+          ),
+        );
+      }
+    });
+    bleService.devicesStream.listen((devices) {
+      print("UI received "+devices.length.toString()+" devices");
+      setState(() {
+        nearbyDevices = devices;
+      });
     });
   }
 
@@ -393,152 +418,177 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Sport Selection Tabs
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildSportTab("Cricket", Icons.sports_cricket, selectedSport == "Cricket"),
-                  const SizedBox(width: 12),
-                  _buildSportTab("Tennis", Icons.sports_tennis, selectedSport == "Tennis"),
-                  const SizedBox(width: 12),
-                  _buildSportTab("Badminton", Icons.sports_tennis, selectedSport == "Badminton"),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            _buildEnhancedConnectionCard(),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 60,
-              child: ElevatedButton(
-                onPressed: _startNewSession,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Sport Selection Tabs
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.play_arrow, size: 28),
+                    _buildSportTab("Cricket", Icons.sports_cricket, selectedSport == "Cricket"),
                     const SizedBox(width: 12),
-                    Text(
-                      "Start New Session",
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    _buildSportTab("Tennis", Icons.sports_tennis, selectedSport == "Tennis"),
+                    const SizedBox(width: 12),
+                    _buildSportTab("Badminton", Icons.sports_tennis, selectedSport == "Badminton"),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.speed,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          "Real-time Data",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Divider(
-                      height: 20,
-                      thickness: 1,
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
-                    ),
-                    const SizedBox(height: 8),
-                    _buildDataRow(
-                      "Speed",
-                      "${latestData['speed'].toStringAsFixed(2)} m/s",
-                      Icons.flash_on,
-                    ),
-                    _buildDataRow(
-                      "Angle",
-                      "${latestData['angle'].toStringAsFixed(2)}°",
-                      Icons.rotate_right,
-                    ),
-                    _buildDataRow(
-                      "Power",
-                      "${latestData['power'].toStringAsFixed(2)} W",
-                      Icons.bolt,
-                    ),
-                    _buildDataRow(
-                      "Direction", 
-                      latestData['direction'], 
-                      Icons.navigation
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (debugMessage.isNotEmpty) ...[
               const SizedBox(height: 20),
-              Card(
-                color:
-                    debugMessage.contains("error") ||
-                            debugMessage.contains("failed")
-                        ? Colors.red.shade100
-                        : Colors.green.shade100,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              _buildEnhancedConnectionCard(),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 60,
+                child: ElevatedButton(
+                  onPressed: _startNewSession,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      Icon(Icons.play_arrow, size: 28),
+                      const SizedBox(width: 12),
                       Text(
-                        "Debug Information",
-                        style: TextStyle(
-                          color:
-                              debugMessage.contains("error") ||
-                                      debugMessage.contains("failed")
-                                  ? Colors.red.shade900
-                                  : Colors.green.shade900,
+                        "Start New Session",
+                        style: const TextStyle(
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        debugMessage,
-                        style: TextStyle(
-                          color:
-                              debugMessage.contains("error") ||
-                                      debugMessage.contains("failed")
-                                  ? Colors.red.shade900
-                                  : Colors.green.shade900,
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
+              const SizedBox(height: 20),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.speed,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            "Real-time Data",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Divider(
+                        height: 20,
+                        thickness: 1,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildDataRow(
+                        "Speed",
+                        "${latestData['speed'].toStringAsFixed(2)} m/s",
+                        Icons.flash_on,
+                      ),
+                      _buildDataRow(
+                        "Angle",
+                        "${latestData['angle'].toStringAsFixed(2)}°",
+                        Icons.rotate_right,
+                      ),
+                      _buildDataRow(
+                        "Power",
+                        "${latestData['power'].toStringAsFixed(2)} W",
+                        Icons.bolt,
+                      ),
+                      _buildDataRow(
+                        "Direction", 
+                        latestData['direction'], 
+                        Icons.navigation
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (debugMessage.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                Card(
+                  color: Theme.of(context).colorScheme.surface,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Debug Information",
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          debugMessage,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                        // Always show the count for debugging
+                        Text(
+                          "Nearby devices found: "+nearbyDevices.length.toString(),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                        if (nearbyDevices.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: NeverScrollableScrollPhysics(),
+                            itemCount: nearbyDevices.length,
+                            itemBuilder: (context, index) {
+                              final device = nearbyDevices[index];
+                              final name = device.device.platformName.isNotEmpty
+                                  ? device.device.platformName
+                                  : device.advertisementData.advName;
+                              final id = device.device.remoteId.toString();
+                              final rssi = device.rssi;
+                              print('Device in UI: $name | ID: $id | RSSI: $rssi');
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                child: Text(
+                                  "$name  |  ID: $id  |  RSSI: $rssi",
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
