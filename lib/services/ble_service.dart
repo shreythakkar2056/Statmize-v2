@@ -8,6 +8,11 @@ import 'dart:math';
 import 'package:location/location.dart' as loc;
 
 class BLEService {
+  // Singleton instance
+  static final BLEService _instance = BLEService._internal();
+  factory BLEService() => _instance;
+  BLEService._internal();
+
   // Device identifiers from constants
   final String deviceName = BLEConstants.DEVICE_NAME;
   final String serviceUuid = BLEConstants.SERVICE_UUID;
