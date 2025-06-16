@@ -30,6 +30,133 @@ class _HomeScreenState extends State<HomeScreen> {
   String debugMessage = '';
   String selectedSport = "Cricket";
   List<dynamic> nearbyDevices = [];
+  String selectedAction = "Start Session";
+
+  // Add stats for each sport
+  final Map<String, Map<String, dynamic>> sportStats = {
+    "Cricket": {
+      "duration": "45 minutes",
+      "stats": [
+        StatItem(label: "Speed", value: "85"),
+        StatItem(label: "Power", value: "78"),
+        StatItem(label: "Accuracy", value: "92%"),
+      ],
+      "gradientColors": [
+        Colors.pink,
+        Colors.pink.shade50,
+      ],
+    },
+    "Tennis": {
+      "duration": "38 minutes",
+      "stats": [
+        StatItem(label: "Speed", value: "72"),
+        StatItem(label: "Power", value: "65"),
+        StatItem(label: "Accuracy", value: "88%"),
+      ],
+      "gradientColors": [
+        Colors.blue,
+        Colors.blue.shade50,
+      ],
+    },
+    "Badminton": {
+      "duration": "52 minutes",
+      "stats": [
+        StatItem(label: "Speed", value: "91"),
+        StatItem(label: "Power", value: "80"),
+        StatItem(label: "Accuracy", value: "95%"),
+      ],
+      "gradientColors": [
+        Colors.purple,
+        Colors.purple.shade50,
+      ],
+    },
+  };
+
+  // Add weekly progress data for each sport
+  final Map<String, Map<String, dynamic>> weeklyProgressData = {
+    "Cricket": {
+      "date": "19 November",
+      "percent": 0.87,
+      "percentLabel": "87%",
+      "goalLabel": "Goal Achievement",
+      "gradientColors": [
+        Colors.blue.shade300,
+        Colors.purple.shade100,
+      ],
+    },
+    "Tennis": {
+      "date": "19 November",
+      "percent": 0.75,
+      "percentLabel": "75%",
+      "goalLabel": "Goal Achievement",
+      "gradientColors": [
+        Colors.green.shade300,
+        Colors.teal.shade100,
+      ],
+    },
+    "Badminton": {
+      "date": "19 November",
+      "percent": 0.93,
+      "percentLabel": "93%",
+      "goalLabel": "Goal Achievement",
+      "gradientColors": [
+        Colors.purple.shade300,
+        Colors.pink.shade100,
+      ],
+    },
+  };
+
+  // Add action card data for each sport
+  final Map<String, Map<String, dynamic>> actionCardData = {
+    "Cricket": {
+      "Start Session": {
+        "icon": Icons.show_chart,
+        "iconBg": Color(0xFFD6F5E6),
+        "iconColor": Color(0xFF34C759),
+        "title": "Start Session",
+        "subtitle": "Begin training",
+      },
+      "Analytics": {
+        "icon": Icons.bar_chart,
+        "iconBg": Color(0xFFE6F0FF),
+        "iconColor": Color(0xFF2979FF),
+        "title": "Analytics",
+        "subtitle": "View detailed stats",
+      },
+    },
+    "Tennis": {
+      "Start Session": {
+        "icon": Icons.sports_tennis,
+        "iconBg": Color(0xFFD6F5E6),
+        "iconColor": Color(0xFF34C759),
+        "title": "Start Session",
+        "subtitle": "Begin training",
+      },
+      "Analytics": {
+        "icon": Icons.bar_chart,
+        "iconBg": Color(0xFFE6F0FF),
+        "iconColor": Color(0xFF2979FF),
+        "title": "Analytics",
+        "subtitle": "View detailed stats",
+      },
+    },
+    "Badminton": {
+      "Start Session": {
+        "icon": Icons.sports_tennis,
+        "iconBg": Color(0xFFD6F5E6),
+        "iconColor": Color(0xFF34C759),
+        "title": "Start Session",
+        "subtitle": "Begin training",
+      },
+      "Analytics": {
+        "icon": Icons.bar_chart,
+        "iconBg": Color(0xFFE6F0FF),
+        "iconColor": Color(0xFF2979FF),
+        "title": "Analytics",
+        "subtitle": "View detailed stats",
+      },
+    },
+  };
 
   @override
   void initState() {
@@ -390,7 +517,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Hello, Rownok!',
+                    'Hello, user!',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -424,17 +551,87 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Sport Selection Tabs
+              // Enhanced Sport Selection Tabs
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                    _buildSportTab("Cricket", Icons.sports_cricket, selectedSport == "Cricket"),
+                    _enhancedSportTab(
+                      label: "Cricket",
+                      icon: Icons.sports_cricket,
+                      isSelected: selectedSport == "Cricket",
+                      onTap: () {
+                        setState(() {
+                          selectedSport = "Cricket";
+                        });
+                      },
+                      selectedColor: Theme.of(context).colorScheme.primary,
+                      unselectedColor: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white.withOpacity(0.07)
+                          : Colors.grey.shade100,
+                    ),
                     const SizedBox(width: 12),
-                    _buildSportTab("Tennis", Icons.sports_tennis, selectedSport == "Tennis"),
+                    _enhancedSportTab(
+                      label: "Tennis",
+                      icon: Icons.sports_tennis,
+                      isSelected: selectedSport == "Tennis",
+                      onTap: () {
+                        setState(() {
+                          selectedSport = "Tennis";
+                        });
+                      },
+                      selectedColor: Theme.of(context).colorScheme.primary,
+                      unselectedColor: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white.withOpacity(0.07)
+                          : Colors.grey.shade100,
+                    ),
                     const SizedBox(width: 12),
-                    _buildSportTab("Badminton", Icons.sports_tennis, selectedSport == "Badminton"),
+                    _enhancedSportTab(
+                      label: "Badminton",
+                      icon: Icons.sports_tennis,
+                      isSelected: selectedSport == "Badminton",
+                      onTap: () {
+                        setState(() {
+                          selectedSport = "Badminton";
+                        });
+                      },
+                      selectedColor: Theme.of(context).colorScheme.primary,
+                      unselectedColor: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white.withOpacity(0.07)
+                          : Colors.grey.shade100,
+                    ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Show only one stat card for the selected sport
+              SessionStatCard(
+                title: "Today's Session",
+                duration: sportStats[selectedSport]!['duration'],
+                stats: List<StatItem>.from(sportStats[selectedSport]!['stats']),
+                gradientColors: List<Color>.from(sportStats[selectedSport]!['gradientColors']),
+                isFullWidth: true,
+              ),
+              const SizedBox(height: 20),
+              // Show only one weekly progress card for the selected sport
+              WeeklyProgressCard(
+                title: "Weekly Progress",
+                date: weeklyProgressData[selectedSport]!['date'],
+                percent: weeklyProgressData[selectedSport]!['percent'],
+                percentLabel: weeklyProgressData[selectedSport]!['percentLabel'],
+                goalLabel: weeklyProgressData[selectedSport]!['goalLabel'],
+                gradientColors: List<Color>.from(weeklyProgressData[selectedSport]!['gradientColors']),
+              ),
+              const SizedBox(height: 20),
+              // Action Cards Row (side by side)
+              SizedBox(
+                height: 110,
+                child: ActionCard(
+                  icon: actionCardData[selectedSport]!['Analytics']["icon"],
+                  iconBg: actionCardData[selectedSport]!['Analytics']["iconBg"],
+                  iconColor: actionCardData[selectedSport]!['Analytics']["iconColor"],
+                  title: actionCardData[selectedSport]!['Analytics']["title"],
+                  subtitle: actionCardData[selectedSport]!['Analytics']["subtitle"],
                 ),
               ),
               const SizedBox(height: 20),
@@ -443,84 +640,43 @@ class _HomeScreenState extends State<HomeScreen> {
               SizedBox(
                 width: double.infinity,
                 height: 60,
-                child: ElevatedButton(
-                  onPressed: _startNewSession,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.18),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    onPressed: _startNewSession,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF0A0E25)
+                          : Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.play_arrow, size: 28),
-                      const SizedBox(width: 12),
-                      Text(
-                        "Start New Session",
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.play_arrow, size: 28),
+                        const SizedBox(width: 12),
+                        Text(
+                          "Start New Session",
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.speed,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            "Real-time Data",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Divider(
-                        height: 20,
-                        thickness: 1,
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
-                      ),
-                      const SizedBox(height: 8),
-                      _buildDataRow(
-                        "Speed",
-                        "${latestData['speed'].toStringAsFixed(2)} m/s",
-                        Icons.flash_on,
-                      ),
-                      _buildDataRow(
-                        "Angle",
-                        "${latestData['angle'].toStringAsFixed(2)}°",
-                        Icons.rotate_right,
-                      ),
-                      _buildDataRow(
-                        "Power",
-                        "${latestData['power'].toStringAsFixed(2)} W",
-                        Icons.bolt,
-                      ),
-                      _buildDataRow(
-                        "Direction", 
-                        latestData['direction'], 
-                        Icons.navigation
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -594,41 +750,373 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSportTab(String sport, IconData icon, bool isSelected) {
+  Widget _enhancedSportTab({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required Color selectedColor,
+    required Color unselectedColor,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final darkBlue = const Color(0xFF0A0E25);
+    final softWhite = const Color(0xFFEFEDE6);
     return InkWell(
-      onTap: () {
-        setState(() {
-          selectedSport = sport;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      borderRadius: BorderRadius.circular(24),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? Theme.of(context).primaryColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? Theme.of(context).primaryColor : Colors.grey.withOpacity(0.3),
-            width: 1,
-          ),
+          color: isSelected ? selectedColor : unselectedColor,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: selectedColor.withOpacity(0.18),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : [],
         ),
         child: Row(
           children: [
             Icon(
               icon,
               size: 20,
-              color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface,
+              color: isDark
+                  ? (isSelected ? darkBlue : softWhite)
+                  : (isSelected ? Colors.white : Theme.of(context).colorScheme.primary),
             ),
             const SizedBox(width: 8),
             Text(
-              sport,
+              label,
               style: TextStyle(
-                fontSize: 14,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: isDark
+                    ? (isSelected ? darkBlue : softWhite)
+                    : (isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class SessionStatCard extends StatelessWidget {
+  final String title;
+  final String duration;
+  final List<StatItem> stats;
+  final List<Color> gradientColors;
+  final bool isFullWidth;
+
+  const SessionStatCard({
+    super.key,
+    required this.title,
+    required this.duration,
+    required this.stats,
+    required this.gradientColors,
+    this.isFullWidth = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: isFullWidth ? double.infinity : 260,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDark
+              ? [
+                  gradientColors[0].withOpacity(0.35),
+                  gradientColors[1].withOpacity(0.18),
+                ]
+              : gradientColors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      duration,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: (isDark ? Colors.white : Colors.black).withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Play button removed
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: stats.map((stat) => stat).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class StatItem extends StatelessWidget {
+  final String label;
+  final String value;
+  const StatItem({super.key, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : Colors.black,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            color: (isDark ? Colors.white : Colors.black).withOpacity(0.7),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class WeeklyProgressCard extends StatelessWidget {
+  final String title;
+  final String date;
+  final double percent;
+  final String percentLabel;
+  final String goalLabel;
+  final List<Color> gradientColors;
+
+  const WeeklyProgressCard({
+    super.key,
+    required this.title,
+    required this.date,
+    required this.percent,
+    required this.percentLabel,
+    required this.goalLabel,
+    required this.gradientColors,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDark
+              ? [
+                  gradientColors[0].withOpacity(0.32),
+                  gradientColors[1].withOpacity(0.16),
+                ]
+              : gradientColors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      date,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: (isDark ? Colors.white : Colors.black).withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    percentLabel,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    goalLabel,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: (isDark ? Colors.white : Colors.black).withOpacity(0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: percent,
+              minHeight: 8,
+              backgroundColor: isDark
+                  ? Colors.white.withOpacity(0.13)
+                  : Colors.white.withOpacity(0.5),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isDark ? Colors.blue.shade200 : Colors.blue,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ActionCard extends StatelessWidget {
+  final IconData icon;
+  final Color iconBg;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+
+  const ActionCard({
+    super.key,
+    required this.icon,
+    required this.iconBg,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF23263A) : const Color(0xFFF7F7FA);
+    final textColor = isDark ? const Color(0xFFEFEDE6) : const Color(0xFF0A0E25);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: iconBg,
+              shape: BoxShape.circle,
+            ),
+            padding: const EdgeInsets.all(14),
+            child: Icon(icon, color: iconColor, size: 28),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: textColor.withOpacity(0.7),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(Icons.chevron_right, color: const Color(0xFFB0B3C7), size: 26),
+        ],
       ),
     );
   }

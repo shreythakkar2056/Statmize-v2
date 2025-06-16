@@ -78,24 +78,15 @@ class AppTheme {
     ),
     cardColor: const Color(0xFF1E293B), // elegant dark card
     colorScheme: ColorScheme.dark(
-      primary: const Color(0xFF00B2FF), // neon blue accent
-      secondary: const Color(0xFF00FFAA), // electric green
+      primary: const Color(0xFFEFEDE6), // silky soft white accent
+      secondary: const Color(0xFFEFEDE6),
       onPrimary: Color(0xFF0F172A),
       onSurface: Color(0xFFEFEDE6),
     ),
-    iconTheme: const IconThemeData(color: Color(0xFF00FFAA)),
+    iconTheme: const IconThemeData(color: Color(0xFFEFEDE6)),
     textTheme: const TextTheme(
       bodyLarge: TextStyle(color: Color(0xFFEFEDE6), fontWeight: FontWeight.w600),
       bodyMedium: TextStyle(color: Color(0xFFEFEDE6)),
     ),
   );
 }
-
-// This theme uses Rajdhani font for a modern, techy look
-// and incorporates a neon blue accent for a futuristic feel.
-// The dark theme features a deep navy background with electric green highlights,
-// while the light theme maintains a clean, professional appearance with a touch of blue.
-// The card color in dark mode is a subtle, elegant dark gray,
-// providing a sleek contrast to the vibrant neon accents.  
-
-//optional 
