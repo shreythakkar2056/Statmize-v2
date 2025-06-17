@@ -83,9 +83,10 @@ class TennisAnalysisService {
 
     // Save raw sensor data to CSV
     await _csvService.saveSensorData(
-      x: acc[0],
-      y: acc[1],
-      z: acc[2],
+      sport: 'Tennis',
+      acc: acc,
+      gyr: gyr,
+      mag: mag,
       swingType: 'Raw Data',
       timestamp: DateTime.now(),
       accMagnitude: accMagnitude,
@@ -193,9 +194,10 @@ class TennisAnalysisService {
 
       // Save analyzed shot data to CSV
       await _csvService.saveSensorData(
-        x: acc[0],
-        y: acc[1],
-        z: acc[2],
+        sport: 'Tennis',
+        acc: acc,
+        gyr: gyr,
+        mag: mag,
         swingType: shotType,
         timestamp: DateTime.now(),
         accMagnitude: accMagnitude,
@@ -208,6 +210,7 @@ class TennisAnalysisService {
         pitch: pitch,
         roll: roll,
         intensity: intensity,
+        suggestions: suggestions,
       );
 
       // Update shot counts

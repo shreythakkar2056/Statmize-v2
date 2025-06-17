@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:app/screens/developer_page.dart';
+import 'package:app/screens/settings_page.dart';
 
 class ProfileModal extends StatelessWidget {
-  final bool isDarkMode;
-  final Function(bool) onThemeToggle;
+  final ThemeMode themeMode;
+  final Function(ThemeMode) onThemeModeChanged;
 
   const ProfileModal({
     super.key,
-    required this.isDarkMode,
-    required this.onThemeToggle,
+    required this.themeMode,
+    required this.onThemeModeChanged,
   });
 
   void _showDialog(BuildContext context, String title, String content) {
@@ -24,6 +26,51 @@ class ProfileModal extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _showThemeSelector(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.light_mode),
+                title: const Text('Light'),
+                selected: themeMode == ThemeMode.light,
+                onTap: () {
+                  onThemeModeChanged(ThemeMode.light);
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.dark_mode),
+                title: const Text('Dark'),
+                selected: themeMode == ThemeMode.dark,
+                onTap: () {
+                  onThemeModeChanged(ThemeMode.dark);
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.brightness_auto),
+                title: const Text('System'),
+                selected: themeMode == ThemeMode.system,
+                onTap: () {
+                  onThemeModeChanged(ThemeMode.system);
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -76,6 +123,18 @@ class ProfileModal extends StatelessWidget {
         onTap: onTap,
       ),
     );
+  }
+
+  String _themeModeLabel(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.light:
+        return 'Light';
+      case ThemeMode.dark:
+        return 'Dark';
+      case ThemeMode.system:
+      default:
+        return 'System';
+    }
   }
 
   @override
@@ -146,8 +205,25 @@ class ProfileModal extends StatelessWidget {
                   icon: Icons.settings,
                   title: "Settings",
                   subtitle: "App preferences and configurations",
-                  onTap: () => _showDialog(context, 'Settings',
-                      'Settings panel will be implemented here with options for notifications, data sync, and app preferences.'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SettingsPage(
+                          isDarkMode: themeMode == ThemeMode.dark,
+                          themeMode: themeMode,
+                          onThemeModeChanged: onThemeModeChanged,
+                          onLogout: () {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Logged out successfully')),
+                            );
+                          },
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 _buildProfileOption(
                   context: context,
@@ -169,12 +245,24 @@ class ProfileModal extends StatelessWidget {
                   context: context,
                   icon: Icons.palette,
                   title: "Theme",
-                  subtitle: "Light/Dark mode",
-                  trailing: Switch(
-                    value: isDarkMode,
-                    onChanged: onThemeToggle,
-                    activeColor: Theme.of(context).colorScheme.primary,
-                  ),
+                  subtitle: _themeModeLabel(themeMode),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _showThemeSelector(context),
+                ),
+                _buildProfileOption(
+                  context: context,
+                  icon: Icons.developer_board,
+                  title: "Developer Mode",
+                  subtitle: "Enable developer mode",
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const DeveloperPage(),
+                      ),
+                    );
+                  },
                 ),
                 _buildProfileOption(
                   context: context,

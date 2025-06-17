@@ -6,13 +6,13 @@ import 'package:app/core/session_page.dart';
 import 'package:app_settings/app_settings.dart';
 
 class HomeScreen extends StatefulWidget {
-  final bool isDarkMode;
-  final Function(bool) onThemeToggle;
+  final ThemeMode themeMode;
+  final Function(ThemeMode) onThemeModeChanged;
 
   const HomeScreen({
     super.key,
-    required this.isDarkMode,
-    required this.onThemeToggle,
+    required this.themeMode,
+    required this.onThemeModeChanged,
   });
 
   @override
@@ -158,6 +158,51 @@ class _HomeScreenState extends State<HomeScreen> {
     },
   };
 
+  // Add performance metrics for each sport
+  final Map<String, Map<String, dynamic>> performanceMetrics = {
+    "Cricket": {
+      "Speed": {"value": 85, "change": 5},
+      "Power": {"value": 78, "change": 3},
+      "Accuracy": {"value": 92, "change": 2},
+    },
+    "Tennis": {
+      "Speed": {"value": 72, "change": 4},
+      "Power": {"value": 65, "change": 2},
+      "Accuracy": {"value": 88, "change": 1},
+    },
+    "Badminton": {
+      "Speed": {"value": 91, "change": 6},
+      "Power": {"value": 80, "change": 4},
+      "Accuracy": {"value": 95, "change": 3},
+    },
+  };
+
+  // Add best records for each sport
+  final Map<String, Map<String, dynamic>> bestRecords = {
+    "Cricket": {
+      "Max Speed": {"value": 94, "date": "2 days ago"},
+      "Max Power": {"value": 89, "date": "1 week ago"},
+      "Best Accuracy": {"value": "98%", "date": "Yesterday"},
+    },
+    "Tennis": {
+      "Max Speed": {"value": 81, "date": "3 days ago"},
+      "Max Power": {"value": 75, "date": "5 days ago"},
+      "Best Accuracy": {"value": "95%", "date": "Today"},
+    },
+    "Badminton": {
+      "Max Speed": {"value": 99, "date": "1 day ago"},
+      "Max Power": {"value": 85, "date": "2 days ago"},
+      "Best Accuracy": {"value": "99%", "date": "Yesterday"},
+    },
+  };
+
+  // Add AI insights for each sport
+  final Map<String, String> aiInsights = {
+    "Cricket": "Your swing consistency improved by 12% this week! Focus on maintaining your follow-through for even better results.",
+    "Tennis": "Your serve accuracy increased by 8%! Keep practicing your toss for more consistent serves.",
+    "Badminton": "Footwork speed up by 10%! Try to maintain your stance for quicker returns.",
+  };
+
   @override
   void initState() {
     super.initState();
@@ -170,8 +215,8 @@ class _HomeScreenState extends State<HomeScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => ProfileModal(
-        isDarkMode: widget.isDarkMode,
-        onThemeToggle: widget.onThemeToggle,
+        themeMode: widget.themeMode,
+        onThemeModeChanged: widget.onThemeModeChanged,
       ),
     );
   }
@@ -551,7 +596,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Enhanced Sport Selection Tabs
+              // Enhanced Sport Selection Tabs (now at the top)
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -604,7 +649,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              // Show only one stat card for the selected sport
+              // 1. Bluetooth state card
+              _buildEnhancedConnectionCardWithShadow(context, bleService),
+              const SizedBox(height: 20),
+              // 2. Today's session
               SessionStatCard(
                 title: "Today's Session",
                 duration: sportStats[selectedSport]!['duration'],
@@ -613,7 +661,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 isFullWidth: true,
               ),
               const SizedBox(height: 20),
-              // Show only one weekly progress card for the selected sport
+              // 3. Weekly progress
               WeeklyProgressCard(
                 title: "Weekly Progress",
                 date: weeklyProgressData[selectedSport]!['date'],
@@ -623,20 +671,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 gradientColors: List<Color>.from(weeklyProgressData[selectedSport]!['gradientColors']),
               ),
               const SizedBox(height: 20),
-              // Action Cards Row (side by side)
-              SizedBox(
-                height: 110,
-                child: ActionCard(
-                  icon: actionCardData[selectedSport]!['Analytics']["icon"],
-                  iconBg: actionCardData[selectedSport]!['Analytics']["iconBg"],
-                  iconColor: actionCardData[selectedSport]!['Analytics']["iconColor"],
-                  title: actionCardData[selectedSport]!['Analytics']["title"],
-                  subtitle: actionCardData[selectedSport]!['Analytics']["subtitle"],
-                ),
-              ),
-              const SizedBox(height: 20),
-              _buildEnhancedConnectionCard(),
-              const SizedBox(height: 20),
+              // 4. Start session button
               SizedBox(
                 width: double.infinity,
                 height: 60,
@@ -680,69 +715,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              if (debugMessage.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                Card(
-                  color: Theme.of(context).colorScheme.surface,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Debug Information",
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurface,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          debugMessage,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                        ),
-                        // Always show the count for debugging
-                        Text(
-                          "Nearby devices found: "+nearbyDevices.length.toString(),
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                        if (nearbyDevices.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: NeverScrollableScrollPhysics(),
-                            itemCount: nearbyDevices.length,
-                            itemBuilder: (context, index) {
-                              final device = nearbyDevices[index];
-                              final name = device.device.platformName.isNotEmpty
-                                  ? device.device.platformName
-                                  : device.advertisementData.advName;
-                              final id = device.device.remoteId.toString();
-                              final rssi = device.rssi;
-                              print('Device in UI: $name | ID: $id | RSSI: $rssi');
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 2.0),
-                                child: Text(
-                                  "$name  |  ID: $id  |  RSSI: $rssi",
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
+              const SizedBox(height: 20),
+              // 5. Analytics
+              SizedBox(
+                height: 110,
+                child: ActionCard(
+                  icon: actionCardData[selectedSport]!['Analytics']["icon"],
+                  iconBg: actionCardData[selectedSport]!['Analytics']["iconBg"],
+                  iconColor: actionCardData[selectedSport]!['Analytics']["iconColor"],
+                  title: actionCardData[selectedSport]!['Analytics']["title"],
+                  subtitle: actionCardData[selectedSport]!['Analytics']["subtitle"],
                 ),
-              ],
+              ),
+              const SizedBox(height: 20),
+              // 6. Performance metrics
+              PerformanceMetricsCard(metrics: performanceMetrics[selectedSport]!),
+              const SizedBox(height: 16),
+              // 7. Best records
+              BestRecordsCard(records: bestRecords[selectedSport]!),
+              const SizedBox(height: 16),
+              // 8. AI insights
+              AIInsightsCard(insight: aiInsights[selectedSport]!),
             ],
           ),
         ),
@@ -803,6 +796,24 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildEnhancedConnectionCardWithShadow(BuildContext context, BLEService bleService) {
+    final cardColor = Theme.of(context).cardColor;
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: _buildEnhancedConnectionCard(),
     );
   }
 }
@@ -1117,6 +1128,266 @@ class ActionCard extends StatelessWidget {
           const SizedBox(width: 8),
           Icon(Icons.chevron_right, color: const Color(0xFFB0B3C7), size: 26),
         ],
+      ),
+    );
+  }
+}
+
+// --- New Card Widgets ---
+class PerformanceMetricsCard extends StatelessWidget {
+  final Map<String, dynamic> metrics;
+  const PerformanceMetricsCard({super.key, required this.metrics});
+
+  @override
+  Widget build(BuildContext context) {
+    final cardColor = Theme.of(context).cardColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Performance Metrics",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _MetricItem(
+                  icon: Icons.flash_on,
+                  label: "Speed",
+                  value: metrics["Speed"]["value"].toString(),
+                  change: metrics["Speed"]["change"],
+                  color: Colors.orange,
+                  isDark: isDark,
+                ),
+                _MetricItem(
+                  icon: Icons.bolt,
+                  label: "Power",
+                  value: metrics["Power"]["value"].toString(),
+                  change: metrics["Power"]["change"],
+                  color: Colors.red,
+                  isDark: isDark,
+                ),
+                _MetricItem(
+                  icon: Icons.verified,
+                  label: "Accuracy",
+                  value: "${metrics["Accuracy"]["value"]}%",
+                  change: metrics["Accuracy"]["change"],
+                  color: Colors.purple,
+                  isDark: isDark,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MetricItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final int change;
+  final Color color;
+  final bool isDark;
+  const _MetricItem({super.key, required this.icon, required this.label, required this.value, required this.change, required this.color, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 4),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(
+            color: isDark ? Colors.white.withOpacity(0.85) : Colors.black54,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          "+${change}% this week",
+          style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w500),
+        ),
+      ],
+    );
+  }
+}
+
+class BestRecordsCard extends StatelessWidget {
+  final Map<String, dynamic> records;
+  const BestRecordsCard({super.key, required this.records});
+
+  @override
+  Widget build(BuildContext context) {
+    final cardColor = Theme.of(context).cardColor;
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "Best Records",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                Icon(Icons.chevron_right, color: Colors.grey.shade400),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _RecordItem(
+              icon: Icons.flash_on,
+              color: Colors.amber,
+              label: "Max Speed",
+              value: records["Max Speed"]["value"].toString(),
+              date: records["Max Speed"]["date"],
+            ),
+            _RecordItem(
+              icon: Icons.bolt,
+              color: Colors.red,
+              label: "Max Power",
+              value: records["Max Power"]["value"].toString(),
+              date: records["Max Power"]["date"],
+            ),
+            _RecordItem(
+              icon: Icons.verified,
+              color: Colors.purple,
+              label: "Best Accuracy",
+              value: records["Best Accuracy"]["value"].toString(),
+              date: records["Best Accuracy"]["date"],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecordItem extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final String value;
+  final String date;
+  const _RecordItem({super.key, required this.icon, required this.color, required this.label, required this.value, required this.date});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(date, style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+              ],
+            ),
+          ),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        ],
+      ),
+    );
+  }
+}
+
+class AIInsightsCard extends StatelessWidget {
+  final String insight;
+  const AIInsightsCard({super.key, required this.insight});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF22304A) : const Color(0xFFEAF6FF);
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.psychology, color: Colors.green.shade400),
+                const SizedBox(width: 8),
+                const Text(
+                  "AI Insights",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              insight,
+              style: TextStyle(fontSize: 15, color: isDark ? Colors.white : Colors.black),
+            ),
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: () {},
+              child: Text(
+                "View More Tips →",
+                style: TextStyle(
+                  color: Colors.blue.shade700,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

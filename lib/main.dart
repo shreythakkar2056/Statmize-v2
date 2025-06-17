@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:app/core/theme.dart';
 import 'package:app/screens/home_screen.dart';
+import 'package:app/screens/settings_page.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   runApp(const MyApp());
@@ -14,11 +16,21 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  bool _isDarkTheme = false;
+  ThemeMode _themeMode = ThemeMode.system;
 
-  void _toggleTheme(bool isDark) {
+  @override
+  void initState() {
+    super.initState();
+    _requestStoragePermission();
+  }
+
+  Future<void> _requestStoragePermission() async {
+    await Permission.storage.request();
+  }
+
+  void _toggleTheme(ThemeMode mode) {
     setState(() {
-      _isDarkTheme = isDark;
+      _themeMode = mode;
     });
   }
 
@@ -28,10 +40,10 @@ class _MyAppState extends State<MyApp> {
       title: 'Statmize',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: _isDarkTheme ? ThemeMode.dark : ThemeMode.light,
+      themeMode: _themeMode,
       home: HomeScreen(
-        isDarkMode: _isDarkTheme,
-        onThemeToggle: _toggleTheme,
+        themeMode: _themeMode,
+        onThemeModeChanged: _toggleTheme,
       ),
     );
   }
