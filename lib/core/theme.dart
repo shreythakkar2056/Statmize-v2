@@ -70,17 +70,17 @@ class AppTheme {
 
   static final ThemeData darkTheme = ThemeData(
     brightness: Brightness.dark,
-    scaffoldBackgroundColor: const Color(0xFF0F172A), // deep navy
+    scaffoldBackgroundColor: const Color(0xFF121212),
     appBarTheme: const AppBarTheme(
-      backgroundColor: Color(0xFF0F172A),
+      backgroundColor: Color(0xFF121212),
       iconTheme: IconThemeData(color: Color(0xFFEFEDE6)),
       titleTextStyle: TextStyle(color: Color(0xFFEFEDE6), fontSize: 20),
     ),
-    cardColor: const Color(0xFF1E293B), // elegant dark card
+    cardColor: const Color(0xFF282828),
     colorScheme: ColorScheme.dark(
-      primary: const Color(0xFFEFEDE6), // silky soft white accent
+      primary: const Color(0xFFEFEDE6),
       secondary: const Color(0xFFEFEDE6),
-      onPrimary: Color(0xFF0F172A),
+      onPrimary: Color(0xFF121212),
       onSurface: Color(0xFFEFEDE6),
     ),
     iconTheme: const IconThemeData(color: Color(0xFFEFEDE6)),

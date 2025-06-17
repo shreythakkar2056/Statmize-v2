@@ -337,6 +337,7 @@ class _SessionPageState extends State<SessionPage> {
   Widget _buildConnectionStatus() {
     return Card(
       margin: const EdgeInsets.all(16),
+      color: Theme.of(context).cardColor,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -412,6 +413,7 @@ class _SessionPageState extends State<SessionPage> {
 
   Widget _buildDataCard(String title, String value, IconData icon, Color color) {
     return Card(
+      color: Theme.of(context).cardColor,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -462,6 +464,7 @@ class _SessionPageState extends State<SessionPage> {
     }
 
     return Card(
+      color: Theme.of(context).cardColor,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -519,10 +522,13 @@ class _SessionPageState extends State<SessionPage> {
           ),
         ),
         const SizedBox(height: 16),
-        ShotAnalysisWidget(
-          shots: shots,
-          shotCounts: shotCounts,
-          avgIntensity: avgIntensity,
+        Card(
+          color: Theme.of(context).cardColor,
+          child: ShotAnalysisWidget(
+            shots: shots,
+            shotCounts: shotCounts,
+            avgIntensity: avgIntensity,
+          ),
         ),
         const SizedBox(height: 24),
       ],

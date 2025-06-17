@@ -64,15 +64,6 @@ class TennisAnalysisService {
     final pitch = raw['pitch'] as double;
     final roll = raw['roll'] as double;
 
-    // Save raw sensor data to CSV
-    await _csvService.saveSensorData(
-      x: acc[0],
-      y: acc[1],
-      z: acc[2],
-      swingType: 'Raw Data',
-      timestamp: DateTime.now(),
-    );
-
     // Calculate magnitudes
     final accMagnitude = sqrt(
       pow(acc[0], 2) + pow(acc[1], 2) + pow(acc[2], 2)
@@ -89,6 +80,25 @@ class TennisAnalysisService {
     final horizontalAcc = sqrt(pow(acc[0], 2) + pow(acc[2], 2)); // X-Z plane acceleration
     final rotationSpeed = gyr[1].abs(); // Y-axis rotation (for topspin/backspin)
     final swingSpeed = gyrMagnitude;
+
+    // Save raw sensor data to CSV
+    await _csvService.saveSensorData(
+      x: acc[0],
+      y: acc[1],
+      z: acc[2],
+      swingType: 'Raw Data',
+      timestamp: DateTime.now(),
+      accMagnitude: accMagnitude,
+      gyrMagnitude: gyrMagnitude,
+      magMagnitude: magMagnitude,
+      verticalAcc: verticalAcc,
+      horizontalAcc: horizontalAcc,
+      rotationSpeed: rotationSpeed,
+      swingSpeed: swingSpeed,
+      pitch: pitch,
+      roll: roll,
+      intensity: 0.0, // Default intensity for raw data
+    );
 
     // Adjusted shot detection thresholds for better sensitivity
     final bool isSignificantMovement = accMagnitude > 1.0 && gyrMagnitude > 1.5; // Lowered threshold
@@ -188,6 +198,16 @@ class TennisAnalysisService {
         z: acc[2],
         swingType: shotType,
         timestamp: DateTime.now(),
+        accMagnitude: accMagnitude,
+        gyrMagnitude: gyrMagnitude,
+        magMagnitude: magMagnitude,
+        verticalAcc: verticalAcc,
+        horizontalAcc: horizontalAcc,
+        rotationSpeed: rotationSpeed,
+        swingSpeed: swingSpeed,
+        pitch: pitch,
+        roll: roll,
+        intensity: intensity,
       );
 
       // Update shot counts

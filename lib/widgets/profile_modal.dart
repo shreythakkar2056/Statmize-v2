@@ -39,7 +39,7 @@ class ProfileModal extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: 0,
-      color: Theme.of(context).colorScheme.surface,
+      color: Theme.of(context).cardColor,
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: isDestructive
