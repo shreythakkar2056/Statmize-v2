@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:app/core/session_page.dart';
+import 'package:app/services/csv_service.dart';
 
 class TennisAnalysisService {
   static final TennisAnalysisService _instance = TennisAnalysisService._internal();
@@ -16,6 +17,8 @@ class TennisAnalysisService {
 
   final StreamController<Map<String, double>> _avgIntensityController = StreamController.broadcast();
   Stream<Map<String, double>> get avgIntensityStream => _avgIntensityController.stream;
+
+  final CSVService _csvService = CSVService();
 
   List<ShotAnalysis> _shots = [];
   Map<String, int> _shotCounts = {};
@@ -51,7 +54,7 @@ class TennisAnalysisService {
   }
 
   // Private method for actual shot analysis
-  void _analyzeShot(Map<String, dynamic> data) {
+  void _analyzeShot(Map<String, dynamic> data) async {
     final raw = data['raw'];
     if (raw == null) return;
 
@@ -60,6 +63,15 @@ class TennisAnalysisService {
     final mag = raw['mag'] as List<double>;
     final pitch = raw['pitch'] as double;
     final roll = raw['roll'] as double;
+
+    // Save raw sensor data to CSV
+    await _csvService.saveSensorData(
+      x: acc[0],
+      y: acc[1],
+      z: acc[2],
+      swingType: 'Raw Data',
+      timestamp: DateTime.now(),
+    );
 
     // Calculate magnitudes
     final accMagnitude = sqrt(
@@ -168,6 +180,15 @@ class TennisAnalysisService {
         intensity: intensity,
         suggestions: suggestions,
       ));
+
+      // Save analyzed shot data to CSV
+      await _csvService.saveSensorData(
+        x: acc[0],
+        y: acc[1],
+        z: acc[2],
+        swingType: shotType,
+        timestamp: DateTime.now(),
+      );
 
       // Update shot counts
       _shotCounts[shotType] = (_shotCounts[shotType] ?? 0) + 1;
