@@ -57,8 +57,13 @@ class _DeveloperPageState extends State<DeveloperPage> {
   }
 
   Future<void> _loadFileContent() async {
-    if (selectedDate == null) return;
-    final content = await csvService.readSensorData(selectedSport);
+    if (selectedDate == null) {
+      setState(() {
+        fileContent = null;
+      });
+      return;
+    }
+    final content = await csvService.readSensorData(selectedSport, date: selectedDate);
     setState(() {
       fileContent = content;
     });
@@ -261,7 +266,7 @@ class _DeveloperPageState extends State<DeveloperPage> {
               if (availableDates.isEmpty)
                 const Text("No files found for this sport."),
               const SizedBox(height: 10),
-              if (fileContent != null)
+              if (fileContent != null && fileContent!.isNotEmpty)
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -310,6 +315,18 @@ class _DeveloperPageState extends State<DeveloperPage> {
                       if (fileContent!.length > 5)
                         const Text("... (showing first 5 rows) ...", style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
                     ],
+                  ),
+                ),
+              if (fileContent != null && fileContent!.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    "No data available for this file.",
+                    style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
                   ),
                 ),
             ],

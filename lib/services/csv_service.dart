@@ -19,6 +19,11 @@ class CSVService {
     return File('$path/sensor_data_${sport}_$today.csv');
   }
 
+  Future<File> _getLocalFileForDate(String sport, String date) async {
+    final path = await _localPath;
+    return File('$path/sensor_data_${sport}_$date.csv');
+  }
+
   Future<void> saveSensorData({
     required String sport,
     required DateTime timestamp,
@@ -37,8 +42,10 @@ class CSVService {
     required double intensity,
     List<String>? suggestions,
     String? swingType,
+    Map<String, dynamic>? rawData,
   }) async {
     try {
+      print('Saving data for $sport at $timestamp: acc=$acc, gyr=$gyr, mag=$mag');
       final file = await _getLocalFile(sport);
       final exists = await file.exists();
       List<List<dynamic>> rows = [];
@@ -61,6 +68,7 @@ class CSVService {
           'Intensity',
           'Swing Type',
           'Suggestions',
+          'Raw Data',
         ]);
       }
       // Add data row
@@ -80,7 +88,8 @@ class CSVService {
         roll.toStringAsFixed(3),
         intensity.toStringAsFixed(3),
         swingType ?? '',
-        suggestions?.join('; ') ?? ''
+        suggestions?.join('; ') ?? '',
+        rawData != null ? rawData.toString() : '',
       ]);
       String csv = const ListToCsvConverter().convert(rows);
       if (exists) {
@@ -94,14 +103,17 @@ class CSVService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> readSensorData(String sport) async {
+  Future<List<Map<String, dynamic>>> readSensorData(String sport, {String? date}) async {
     try {
-      final file = await _getLocalFile(sport);
+      final file = date == null
+          ? await _getLocalFile(sport)
+          : await _getLocalFileForDate(sport, date);
       if (!await file.exists()) {
         return [];
       }
       final contents = await file.readAsString();
       List<List<dynamic>> rowsAsListOfValues = const CsvToListConverter().convert(contents);
+      if (rowsAsListOfValues.isEmpty) return [];
       // Skip header row
       rowsAsListOfValues.removeAt(0);
       return rowsAsListOfValues.map((row) {

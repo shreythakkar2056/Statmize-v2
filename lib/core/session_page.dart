@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:app/services/ble_service.dart';
 import 'package:app/services/tennis_analysis_service.dart';
+import 'package:app/services/csv_service.dart';
 
 // Add this new class for shot analysis
 class ShotAnalysis {
@@ -188,6 +189,7 @@ class SessionPage extends StatefulWidget {
 class _SessionPageState extends State<SessionPage> {
   final BLEService bleService = BLEService();
   final TennisAnalysisService tennisService = TennisAnalysisService();
+  final CSVService csvService = CSVService();
   Map<String, dynamic> latestData = {
     'speed': 0.0,
     'angle': 0.0,
@@ -251,8 +253,9 @@ class _SessionPageState extends State<SessionPage> {
 
   Future<void> _initializeBLE() async {
     // Listen to data stream
-    _dataSubscription = bleService.dataStream.listen((data) {
+    _dataSubscription = bleService.dataStream.listen((data) async {
       if (mounted) {
+        // 1. Update UI state
         setState(() {
           // Process raw sensor data
           final acc = data['raw']['acc'] as List<double>;
@@ -273,7 +276,8 @@ class _SessionPageState extends State<SessionPage> {
 
           // Calculate angle from accelerometer
           final pitch = atan2(acc[1], sqrt(pow(acc[0], 2) + pow(acc[2], 2))) * 180.0 / pi;
-          
+          final roll = atan2(-acc[0], acc[2]) * 180.0 / pi;
+
           // Determine direction based on gyroscope data
           String direction = "Unknown";
           final yawRate = gyr[2]; // Z-axis rotation
@@ -304,6 +308,46 @@ class _SessionPageState extends State<SessionPage> {
             tennisService.analyzeShot(latestData);
           }
         });
+        // 2. Save data (outside setState)
+        print('Received BLE data: ' + data.toString());
+        final acc = data['raw']['acc'] as List<double>;
+        final gyr = data['raw']['gyr'] as List<double>;
+        final mag = data['raw']['mag'] as List<double>;
+        final accMagnitude = sqrt(
+          pow(acc[0], 2) + pow(acc[1], 2) + pow(acc[2], 2)
+        );
+        final gyrMagnitude = sqrt(
+          pow(gyr[0], 2) + pow(gyr[1], 2) + pow(gyr[2], 2)
+        );
+        final magMagnitude = sqrt(
+          pow(mag[0], 2) + pow(mag[1], 2) + pow(mag[2], 2)
+        );
+        final verticalAcc = acc[1].abs();
+        final horizontalAcc = sqrt(pow(acc[0], 2) + pow(acc[2], 2));
+        final rotationSpeed = gyr[1].abs();
+        final swingSpeed = gyrMagnitude;
+        final pitch = atan2(acc[1], sqrt(pow(acc[0], 2) + pow(acc[2], 2))) * 180.0 / pi;
+        final roll = atan2(-acc[0], acc[2]) * 180.0 / pi;
+        await csvService.saveSensorData(
+          sport: widget.selectedSport,
+          timestamp: DateTime.now(),
+          acc: acc,
+          gyr: gyr,
+          mag: mag,
+          accMagnitude: accMagnitude,
+          gyrMagnitude: gyrMagnitude,
+          magMagnitude: magMagnitude,
+          verticalAcc: verticalAcc,
+          horizontalAcc: horizontalAcc,
+          rotationSpeed: rotationSpeed,
+          swingSpeed: swingSpeed,
+          pitch: pitch,
+          roll: roll,
+          intensity: 0.0,
+          swingType: null,
+          suggestions: null,
+          rawData: data['raw'],
+        );
       }
     });
 
