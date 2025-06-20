@@ -1,9 +1,161 @@
+import 'package:app/main.dart';
 import 'package:flutter/material.dart';
 import 'package:app/screens/signup_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   final VoidCallback? onSkip;
   const LoginScreen({super.key, this.onSkip});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _resetEmailController = TextEditingController();
+  bool _passwordObscured = true;
+  bool _isLoading = false;
+
+  Future<void> _signIn() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await supabase.auth.signInWithPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+    } on AuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: Colors.red,
+          ),
+        );
+        if (e.message.toLowerCase().contains('invalid login credentials')) {
+          //ask user to sign up
+          showDialog(
+            context: context,
+            builder: (context) {
+              return AlertDialog(
+                title: const Text('Not registered yet?'),
+                content: const Text('This email is not registered. Please create an account to continue.'),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const SignupScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text('Sign Up'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text('Cancel'),
+                  ),
+                ],
+              );
+            },
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('An unexpected error occurred: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _showForgotPasswordDialog() async {
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Forgot Password'),
+          content: TextField(
+            controller: _resetEmailController,
+            decoration: const InputDecoration(hintText: "Enter your email"),
+            keyboardType: TextInputType.emailAddress,
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Send Reset Link'),
+              onPressed: () async {
+                try {
+                  await supabase.auth.resetPasswordForEmail(
+                    _resetEmailController.text.trim(),
+                  );
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Password reset link sent. Please check your email.'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } on AuthException catch (e) {
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(e.message),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('An unexpected error occurred: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _resetEmailController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,8 +181,8 @@ class LoginScreen extends StatelessWidget {
                           boxShadow: [
                             BoxShadow(
                               color: isDark
-                                  ? Colors.white.withOpacity(0.15)
-                                  : Theme.of(context).colorScheme.primary.withOpacity(0.12),
+                                  ? Colors.white.withAlpha(38)
+                                  : Theme.of(context).colorScheme.primary.withAlpha(31),
                               blurRadius: 10,
                               spreadRadius: 1,
                             ),
@@ -59,15 +211,16 @@ class LoginScreen extends StatelessWidget {
                       'Sign in to continue your training journey',
                       style: TextStyle(
                         fontSize: 16,
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                        color: Theme.of(context).colorScheme.onSurface.withAlpha(179),
                       ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 32),
                     // Email field
-                    TextField(
+                    TextFormField(
+                      controller: _emailController,
                       decoration: InputDecoration(
-                        prefixIcon: Icon(Icons.email_outlined),
+                        prefixIcon: const Icon(Icons.email_outlined),
                         hintText: 'Email Address',
                         filled: true,
                         fillColor: isDark ? const Color(0xFF232323) : Colors.white,
@@ -80,10 +233,11 @@ class LoginScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     // Password field
-                    TextField(
-                      obscureText: true,
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: _passwordObscured,
                       decoration: InputDecoration(
-                        prefixIcon: Icon(Icons.lock_outline),
+                        prefixIcon: const Icon(Icons.lock_outline),
                         hintText: 'Password',
                         filled: true,
                         fillColor: isDark ? const Color(0xFF232323) : Colors.white,
@@ -92,14 +246,21 @@ class LoginScreen extends StatelessWidget {
                           borderSide: BorderSide.none,
                         ),
                         contentPadding: const EdgeInsets.symmetric(vertical: 18),
-                        suffixIcon: Icon(Icons.visibility_off_outlined),
+                        suffixIcon: IconButton(
+                          icon: Icon(_passwordObscured ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                          onPressed: () {
+                            setState(() {
+                              _passwordObscured = !_passwordObscured;
+                            });
+                          },
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () {},
+                        onPressed: _showForgotPasswordDialog,
                         child: const Text('Forgot Password?'),
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.blue,
@@ -113,7 +274,7 @@ class LoginScreen extends StatelessWidget {
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: () {},
+                        onPressed: _isLoading ? null : _signIn,
                         style: ElevatedButton.styleFrom(
                           elevation: 0,
                           shape: RoundedRectangleBorder(
@@ -123,20 +284,22 @@ class LoginScreen extends StatelessWidget {
                           foregroundColor: isDark ? const Color(0xFF0A0E25) : Colors.white,
                           padding: EdgeInsets.zero,
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const SizedBox(width: 12),
-                            Text(
-                              'Sign In',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? const Color(0xFF0A0E25) : Colors.white,
+                        child: _isLoading
+                            ? const CircularProgressIndicator()
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    'Sign In',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? const Color(0xFF0A0E25) : Colors.white,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
                       ),
                     ),
                     const SizedBox(height: 18),
@@ -148,7 +311,7 @@ class LoginScreen extends StatelessWidget {
                           child: Text(
                             'Or continue with',
                             style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                              color: Theme.of(context).colorScheme.onSurface.withAlpha(153),
                             ),
                           ),
                         ),
@@ -215,7 +378,7 @@ class LoginScreen extends StatelessWidget {
                         Text(
                           "Don't have an account? ",
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                            color: Theme.of(context).colorScheme.onSurface.withAlpha(179),
                           ),
                         ),
                         GestureDetector(
@@ -223,7 +386,7 @@ class LoginScreen extends StatelessWidget {
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (context) => SignupScreen(
-                                  onSkip: onSkip,
+                                  onSkip: widget.onSkip,
                                 ),
                               ),
                             );
@@ -248,7 +411,7 @@ class LoginScreen extends StatelessWidget {
               top: 12,
               right: 12,
               child: TextButton(
-                onPressed: onSkip,
+                onPressed: widget.onSkip,
                 child: const Text('Skip'),
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.blue,

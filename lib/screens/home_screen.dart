@@ -1,9 +1,11 @@
+import 'package:app/main.dart';
 import 'package:flutter/material.dart';
 import 'package:app/widgets/connection_card.dart';
 import 'package:app/services/ble_service.dart';
 import 'package:app/widgets/profile_modal.dart';
 import 'package:app/core/session_page.dart';
 import 'package:app_settings/app_settings.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeScreen extends StatefulWidget {
   final ThemeMode themeMode;
@@ -31,8 +33,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String selectedSport = "Cricket";
   List<dynamic> nearbyDevices = [];
   String selectedAction = "Start Session";
+  String _userName = 'User';
 
-  // Add stats for each sport
   final Map<String, Map<String, dynamic>> sportStats = {
     "Cricket": {
       "duration": "45 minutes",
@@ -72,7 +74,6 @@ class _HomeScreenState extends State<HomeScreen> {
     },
   };
 
-  // Add weekly progress data for each sport
   final Map<String, Map<String, dynamic>> weeklyProgressData = {
     "Cricket": {
       "date": "19 November",
@@ -106,7 +107,6 @@ class _HomeScreenState extends State<HomeScreen> {
     },
   };
 
-  // Add action card data for each sport
   final Map<String, Map<String, dynamic>> actionCardData = {
     "Cricket": {
       "Start Session": {
@@ -158,7 +158,6 @@ class _HomeScreenState extends State<HomeScreen> {
     },
   };
 
-  // Add performance metrics for each sport
   final Map<String, Map<String, dynamic>> performanceMetrics = {
     "Cricket": {
       "Speed": {"value": 85, "change": 5},
@@ -177,7 +176,6 @@ class _HomeScreenState extends State<HomeScreen> {
     },
   };
 
-  // Add best records for each sport
   final Map<String, Map<String, dynamic>> bestRecords = {
     "Cricket": {
       "Max Speed": {"value": 94, "date": "2 days ago"},
@@ -196,7 +194,6 @@ class _HomeScreenState extends State<HomeScreen> {
     },
   };
 
-  // Add AI insights for each sport
   final Map<String, String> aiInsights = {
     "Cricket": "Your swing consistency improved by 12% this week! Focus on maintaining your follow-through for even better results.",
     "Tennis": "Your serve accuracy increased by 8%! Keep practicing your toss for more consistent serves.",
@@ -207,6 +204,40 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _initializeBLE();
+    _getProfile();
+  }
+
+  Future<void> _getProfile() async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) return;
+
+      final data = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('user_id', user.id);
+
+      if (mounted && data.isNotEmpty) {
+        final profile = data.first;
+        setState(() {
+          _userName = (profile['full_name'] as String?) ?? 'User';
+        });
+      }
+    } on PostgrestException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("Error fetching profile: ${error.message}"),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('An unexpected error occurred while fetching profile'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
   }
 
   void _showProfileModal() {
@@ -217,6 +248,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) => ProfileModal(
         themeMode: widget.themeMode,
         onThemeModeChanged: widget.onThemeModeChanged,
+        userName: _userName,
       ),
     );
   }
@@ -562,7 +594,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Hello, user!',
+                    'Hello, $_userName!',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

@@ -1,15 +1,19 @@
+import 'package:app/main.dart';
 import 'package:flutter/material.dart';
 import 'package:app/screens/developer_page.dart';
 import 'package:app/screens/settings_page.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfileModal extends StatelessWidget {
   final ThemeMode themeMode;
   final Function(ThemeMode) onThemeModeChanged;
+  final String userName;
 
   const ProfileModal({
     super.key,
     required this.themeMode,
     required this.onThemeModeChanged,
+    required this.userName,
   });
 
   void _showDialog(BuildContext context, String title, String content) {
@@ -177,7 +181,7 @@ class ProfileModal extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  "User",
+                  userName,
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -291,11 +295,13 @@ class ProfileModal extends StatelessWidget {
                             child: const Text('Cancel'),
                           ),
                           TextButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Logged out successfully')),
-                              );
+                            onPressed: () async {
+                              await supabase.auth.signOut();
+                              // The StreamBuilder in main.dart will handle navigation.
+                              // Pop all screens until we are back at the root.
+                              if (context.mounted) {
+                                Navigator.of(context).popUntil((route) => route.isFirst);
+                              }
                             },
                             child: const Text(
                               'Logout',
