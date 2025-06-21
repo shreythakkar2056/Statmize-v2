@@ -118,6 +118,7 @@ class _SettingsPageState extends State<SettingsPage> {
           Text('Account', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Card(
+            color: Theme.of(context).cardColor,
             child: ListTile(
               leading: const Icon(Icons.person),
               title: const Text('Edit Profile'),
@@ -130,6 +131,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           Card(
+            color: Theme.of(context).cardColor,
             child: ListTile(
               leading: const Icon(Icons.lock_reset),
               title: const Text('Change Password'),
@@ -142,6 +144,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           Card(
+            color: Theme.of(context).cardColor,
             child: ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('Logout'),
@@ -154,6 +157,7 @@ class _SettingsPageState extends State<SettingsPage> {
           Text('Preferences', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Card(
+            color: Theme.of(context).cardColor,
             child: ListTile(
               leading: const Icon(Icons.color_lens),
               title: const Text('Theme'),
@@ -163,6 +167,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           Card(
+            color: Theme.of(context).cardColor,
             child: ListTile(
               leading: const Icon(Icons.language),
               title: const Text('Language'),
@@ -176,6 +181,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           Card(
+            color: Theme.of(context).cardColor,
             child: ListTile(
               leading: const Icon(Icons.straighten),
               title: const Text('Units'),
@@ -194,6 +200,7 @@ class _SettingsPageState extends State<SettingsPage> {
           Text('Notifications', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Card(
+            color: Theme.of(context).cardColor,
             child: SwitchListTile(
               title: const Text('Enable Notifications'),
               value: notificationsEnabled,
@@ -206,6 +213,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           Card(
+            color: Theme.of(context).cardColor,
             child: ListTile(
               leading: const Icon(Icons.tune),
               title: const Text('Notification Preferences'),
@@ -223,6 +231,7 @@ class _SettingsPageState extends State<SettingsPage> {
           Text('Data & Privacy', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Card(
+            color: Theme.of(context).cardColor,
             child: ListTile(
               leading: const Icon(Icons.file_upload),
               title: const Text('Export Data'),
@@ -236,6 +245,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           Card(
+            color: Theme.of(context).cardColor,
             child: ListTile(
               leading: const Icon(Icons.file_download),
               title: const Text('Import Data'),
@@ -249,6 +259,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           Card(
+            color: Theme.of(context).cardColor,
             child: ListTile(
               leading: const Icon(Icons.delete_forever),
               title: const Text('Clear All Data'),
@@ -262,6 +273,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           Card(
+            color: Theme.of(context).cardColor,
             child: ListTile(
               leading: const Icon(Icons.privacy_tip),
               title: const Text('Privacy Policy'),

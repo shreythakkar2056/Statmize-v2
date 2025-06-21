@@ -33,51 +33,6 @@ class ProfileModal extends StatelessWidget {
     );
   }
 
-  void _showThemeSelector(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.light_mode),
-                title: const Text('Light'),
-                selected: themeMode == ThemeMode.light,
-                onTap: () {
-                  onThemeModeChanged(ThemeMode.light);
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.dark_mode),
-                title: const Text('Dark'),
-                selected: themeMode == ThemeMode.dark,
-                onTap: () {
-                  onThemeModeChanged(ThemeMode.dark);
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.brightness_auto),
-                title: const Text('System'),
-                selected: themeMode == ThemeMode.system,
-                onTap: () {
-                  onThemeModeChanged(ThemeMode.system);
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildProfileOption({
     required BuildContext context,
     required IconData icon,
@@ -127,18 +82,6 @@ class ProfileModal extends StatelessWidget {
         onTap: onTap,
       ),
     );
-  }
-
-  String _themeModeLabel(ThemeMode mode) {
-    switch (mode) {
-      case ThemeMode.light:
-        return 'Light';
-      case ThemeMode.dark:
-        return 'Dark';
-      case ThemeMode.system:
-      default:
-        return 'System';
-    }
   }
 
   @override
@@ -229,6 +172,7 @@ class ProfileModal extends StatelessWidget {
                     );
                   },
                 ),
+                _buildThemeSelectorCard(context),
                 _buildProfileOption(
                   context: context,
                   icon: Icons.analytics,
@@ -244,14 +188,6 @@ class ProfileModal extends StatelessWidget {
                   subtitle: "View past training sessions",
                   onTap: () => _showDialog(context, 'Session History',
                       'View your past training sessions, compare performances, and track your improvement over time.'),
-                ),
-                _buildProfileOption(
-                  context: context,
-                  icon: Icons.palette,
-                  title: "Theme",
-                  subtitle: _themeModeLabel(themeMode),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _showThemeSelector(context),
                 ),
                 _buildProfileOption(
                   context: context,
@@ -317,6 +253,83 @@ class ProfileModal extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildThemeSelectorCard(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    Widget buildCapsule(ThemeMode mode, String label, IconData icon) {
+      final isSelected = themeMode == mode;
+      final color = isSelected
+          ? Theme.of(context).colorScheme.onPrimary
+          : Theme.of(context).colorScheme.onSurface;
+
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => onThemeModeChanged(mode),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            height: 40,
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? Theme.of(context).colorScheme.primary
+                  : (isDark ? const Color(0xFF2C2C2E) : Colors.grey.shade200),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 18, color: color),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: color,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      color: Theme.of(context).cardColor,
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          children: [
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                child: Icon(
+                  Icons.palette,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              title: Text('Theme', style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              child: Row(
+                children: [
+                  buildCapsule(ThemeMode.light, 'Light', Icons.light_mode_outlined),
+                  buildCapsule(ThemeMode.dark, 'Dark', Icons.dark_mode_outlined),
+                  buildCapsule(ThemeMode.system, 'System', Icons.brightness_auto_outlined),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

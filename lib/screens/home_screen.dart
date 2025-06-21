@@ -269,7 +269,7 @@ class _HomeScreenState extends State<HomeScreen> {
         maxHeight: modalHeight,
       ),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: Theme.of(context).scaffoldBackgroundColor,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(24),
           topRight: Radius.circular(24),

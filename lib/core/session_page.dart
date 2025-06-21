@@ -459,9 +459,10 @@ class _SessionPageState extends State<SessionPage> {
     return Card(
       color: Theme.of(context).cardColor,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(8.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
               padding: const EdgeInsets.all(6),
@@ -471,16 +472,16 @@ class _SessionPageState extends State<SessionPage> {
               ),
               child: Icon(icon, color: color, size: 20),
             ),
-            const SizedBox(height: 6),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
             ),
             Text(
               title,
@@ -490,7 +491,6 @@ class _SessionPageState extends State<SessionPage> {
               ),
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
-              maxLines: 1,
             ),
           ],
         ),
@@ -510,9 +510,10 @@ class _SessionPageState extends State<SessionPage> {
     return Card(
       color: Theme.of(context).cardColor,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(8.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
               padding: const EdgeInsets.all(6),
@@ -522,16 +523,16 @@ class _SessionPageState extends State<SessionPage> {
               ),
               child: Icon(icon, color: color, size: 20),
             ),
-            const SizedBox(height: 6),
-            Text(
-              displayDirection,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                displayDirection,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
             ),
             Text(
               "Direction",
@@ -541,7 +542,6 @@ class _SessionPageState extends State<SessionPage> {
               ),
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
-              maxLines: 1,
             ),
           ],
         ),
@@ -580,6 +580,11 @@ class _SessionPageState extends State<SessionPage> {
   }
 
   Widget _buildSessionStats() {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final cardHeight = screenHeight < 700 ? 90.0 : 100.0;
+    final cardWidth = (MediaQuery.of(context).size.width - 32 - 8) / 2;
+    final aspectRatio = cardWidth / cardHeight;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -598,7 +603,7 @@ class _SessionPageState extends State<SessionPage> {
           crossAxisCount: 2,
           mainAxisSpacing: 8,
           crossAxisSpacing: 8,
-          childAspectRatio: 1.5,
+          childAspectRatio: aspectRatio,
           children: [
             _buildDataCard("Max Speed", "${maxSpeed.toStringAsFixed(1)} m/s", Icons.flash_on, Colors.red),
             _buildDataCard("Max Power", "${maxPower.toStringAsFixed(0)} W", Icons.fitness_center, Colors.deepOrange),
@@ -677,20 +682,29 @@ class _SessionPageState extends State<SessionPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 8,
-                    childAspectRatio: 1.3,
-                    children: [
-                      _buildDataCard("Speed", "${latestData['speed'].toStringAsFixed(1)} m/s", Icons.speed, Colors.blue),
-                      _buildDataCard("Power", "${latestData['power'].toStringAsFixed(0)} W", Icons.bolt, Colors.orange),
-                      _buildDataCard("Angle", "${latestData['angle'].toStringAsFixed(1)}°", Icons.rotate_right, Colors.green),
-                      _buildDirectionCard(latestData['direction'], Icons.navigation, Colors.purple),
-                    ],
-                  ),
+                  Builder(builder: (context) {
+                    final screenHeight = MediaQuery.of(context).size.height;
+                    // Give cards a bit more height on smaller screens to prevent overflow
+                    final cardHeight = screenHeight < 700 ? 95.0 : 100.0;
+                    // Calculate width based on screen size, padding, and spacing
+                    final cardWidth = (MediaQuery.of(context).size.width - 32 - 8) / 2;
+                    final aspectRatio = cardWidth / cardHeight;
+
+                    return GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: aspectRatio,
+                      children: [
+                        _buildDataCard("Speed", "${latestData['speed'].toStringAsFixed(1)} m/s", Icons.speed, Colors.blue),
+                        _buildDataCard("Power", "${latestData['power'].toStringAsFixed(0)} W", Icons.bolt, Colors.orange),
+                        _buildDataCard("Angle", "${latestData['angle'].toStringAsFixed(1)}°", Icons.rotate_right, Colors.green),
+                        _buildDirectionCard(latestData['direction'], Icons.navigation, Colors.purple),
+                      ],
+                    );
+                  }),
                   
                   const SizedBox(height: 24),
                   

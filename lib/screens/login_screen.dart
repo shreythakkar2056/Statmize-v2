@@ -406,28 +406,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             ),
-            // Skip button (top right)
-            Positioned(
-              top: 12,
-              right: 12,
-              child: TextButton(
-                onPressed: widget.onSkip,
-                child: const Text('Skip'),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.blue,
-                  textStyle: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-            // Back button (top left)
-            Positioned(
-              top: 12,
-              left: 4,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                onPressed: () => Navigator.of(context).maybePop(),
-              ),
-            ),
           ],
         ),
       ),
