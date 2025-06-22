@@ -274,9 +274,10 @@ class _SessionPageState extends State<SessionPage> {
           );
           final power = accMagnitude * gyrMagnitude / 1000;
 
-          // Calculate angle from accelerometer
-          final pitch = atan2(acc[1], sqrt(pow(acc[0], 2) + pow(acc[2], 2))) * 180.0 / pi;
-          final roll = atan2(-acc[0], acc[2]) * 180.0 / pi;
+          // Use ESP32-provided angles (more accurate than calculated)
+          final pitch = data['raw']['pitch'] as double;
+          final roll = data['raw']['roll'] as double;
+          final yaw = data['raw']['yaw'] as double;
 
           // Determine direction based on gyroscope data
           String direction = "Unknown";
@@ -288,7 +289,7 @@ class _SessionPageState extends State<SessionPage> {
           // Update latest data
           latestData = {
             'speed': speed,
-            'angle': pitch,
+            'angle': pitch, // Use ESP32 pitch angle
             'power': power,
             'direction': direction,
             'raw': data['raw'],
@@ -302,13 +303,18 @@ class _SessionPageState extends State<SessionPage> {
           if (speed > 1.0) {
             swingCount++;
           }
-
-          // Analyze tennis shot if applicable
-          if (widget.selectedSport == "Tennis") {
-            tennisService.analyzeShot(latestData);
-          }
         });
-        // 2. Save data (outside setState)
+        
+        // 2. Analyze tennis shot if applicable - Pass ESP32 data string directly
+        if (widget.selectedSport == "Tennis") {
+          // Get the original ESP32 data string from BLE service
+          final esp32DataString = _getESP32DataString(data);
+          if (esp32DataString != null) {
+            tennisService.analyzeShot(esp32DataString);
+          }
+        }
+        
+        // 3. Save data (outside setState)
         print('Received BLE data: ' + data.toString());
         final acc = data['raw']['acc'] as List<double>;
         final gyr = data['raw']['gyr'] as List<double>;
@@ -326,8 +332,12 @@ class _SessionPageState extends State<SessionPage> {
         final horizontalAcc = sqrt(pow(acc[0], 2) + pow(acc[2], 2));
         final rotationSpeed = gyr[1].abs();
         final swingSpeed = gyrMagnitude;
-        final pitch = atan2(acc[1], sqrt(pow(acc[0], 2) + pow(acc[2], 2))) * 180.0 / pi;
-        final roll = atan2(-acc[0], acc[2]) * 180.0 / pi;
+        
+        // Use ESP32-provided angles (more accurate)
+        final pitch = data['raw']['pitch'] as double;
+        final roll = data['raw']['roll'] as double;
+        final yaw = data['raw']['yaw'] as double;
+        
         await csvService.saveSensorData(
           sport: widget.selectedSport,
           timestamp: DateTime.now(),
@@ -365,6 +375,30 @@ class _SessionPageState extends State<SessionPage> {
       setState(() {
         debugMessage = "${widget.selectedSport} session started!";
       });
+    }
+  }
+
+  // Helper method to reconstruct ESP32 data string from processed data
+  String? _getESP32DataString(Map<String, dynamic> data) {
+    try {
+      final raw = data['raw'];
+      if (raw == null) return null;
+      
+      final acc = raw['acc'] as List<double>;
+      final gyr = raw['gyr'] as List<double>;
+      final mag = raw['mag'] as List<double>;
+      final pitch = raw['pitch'] as double;
+      final roll = raw['roll'] as double;
+      final yaw = raw['yaw'] as double; // Use the YAW value from ESP32
+      
+      // Reconstruct ESP32 format: "ACC:x,y,z GYR:x,y,z MAG:x,y,z PITCH:p ROLL:r YAW:y"
+      return "ACC:${acc[0].toStringAsFixed(1)},${acc[1].toStringAsFixed(1)},${acc[2].toStringAsFixed(1)} "
+             "GYR:${gyr[0].toStringAsFixed(1)},${gyr[1].toStringAsFixed(1)},${gyr[2].toStringAsFixed(1)} "
+             "MAG:${mag[0].toStringAsFixed(1)},${mag[1].toStringAsFixed(1)},${mag[2].toStringAsFixed(1)} "
+             "PITCH:${pitch.toStringAsFixed(1)} ROLL:${roll.toStringAsFixed(1)} YAW:${yaw.toStringAsFixed(1)}";
+    } catch (e) {
+      print('Error reconstructing ESP32 data string: $e');
+      return null;
     }
   }
 

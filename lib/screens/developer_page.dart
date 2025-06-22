@@ -25,6 +25,9 @@ class _DeveloperPageState extends State<DeveloperPage> {
   List<String> availableDates = [];
   String? selectedDate;
   List<Map<String, dynamic>>? fileContent;
+  Map<String, dynamic>? fileInfo;
+  bool isValidating = false;
+  bool isValid = false;
 
   @override
   void initState() {
@@ -60,13 +63,68 @@ class _DeveloperPageState extends State<DeveloperPage> {
     if (selectedDate == null) {
       setState(() {
         fileContent = null;
+        fileInfo = null;
+        isValid = false;
       });
       return;
     }
     final content = await csvService.readSensorData(selectedSport, date: selectedDate);
+    final info = await csvService.getFileInfo(selectedSport, date: selectedDate);
     setState(() {
       fileContent = content;
+      fileInfo = info;
     });
+  }
+
+  Future<void> _validateCSV() async {
+    if (selectedDate == null) return;
+    
+    setState(() {
+      isValidating = true;
+    });
+    
+    try {
+      final valid = await csvService.validateCSV(selectedSport, date: selectedDate);
+      setState(() {
+        isValid = valid;
+        isValidating = false;
+      });
+    } catch (e) {
+      setState(() {
+        isValid = false;
+        isValidating = false;
+      });
+    }
+  }
+
+  Future<void> _exportCSV() async {
+    if (selectedDate == null) return;
+    
+    try {
+      final exportedPath = await csvService.exportCSV(selectedSport, date: selectedDate);
+      if (exportedPath != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ CSV exported to: $exportedPath'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('❌ Failed to export CSV'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Export error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   // Helper to get the file path for sharing/deleting
@@ -266,6 +324,86 @@ class _DeveloperPageState extends State<DeveloperPage> {
               if (availableDates.isEmpty)
                 const Text("No files found for this sport."),
               const SizedBox(height: 10),
+              
+              // File Info and Actions
+              if (fileInfo != null) ...[
+                Card(
+                  color: Theme.of(context).cardColor,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              "File Information",
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        if (fileInfo!['exists']) ...[
+                          Text("Path: ${fileInfo!['path']}"),
+                          Text("Size: ${(fileInfo!['size'] / 1024).toStringAsFixed(2)} KB"),
+                          Text("Rows: ${fileInfo!['rowCount']}"),
+                          Text("Last Modified: ${fileInfo!['lastModified']}"),
+                        ] else ...[
+                          Text("File does not exist", style: TextStyle(color: Colors.red)),
+                        ],
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: isValidating ? null : _validateCSV,
+                              icon: isValidating 
+                                ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                : Icon(isValid ? Icons.check_circle : Icons.verified),
+                              label: Text(isValidating ? "Validating..." : "Validate CSV"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isValid ? Colors.green : Colors.blue,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              onPressed: _exportCSV,
+                              icon: const Icon(Icons.download),
+                              label: const Text("Export"),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              onPressed: _shareFile,
+                              icon: const Icon(Icons.share),
+                              label: const Text("Share"),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              onPressed: _deleteFile,
+                              icon: const Icon(Icons.delete),
+                              label: const Text("Delete"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
               if (fileContent != null && fileContent!.isNotEmpty)
                 Container(
                   padding: const EdgeInsets.all(12),

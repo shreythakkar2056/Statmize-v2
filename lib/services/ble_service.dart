@@ -306,49 +306,60 @@ class BLEService {
       final dataString = String.fromCharCodes(value);
       print("Decoded data: $dataString");
       
-      // Parse ACC, GYR, and MAG values
-      Map<String, List<double>> sensorData = {};
+      // Parse ACC, GYR, MAG, PITCH, ROLL, and YAW values
+      Map<String, dynamic> sensorData = {};
       
-      // Split into sensor groups (ACC, GYR, MAG)
+      // Split into sensor groups (ACC, GYR, MAG, PITCH, ROLL, YAW)
       List<String> sensorGroups = dataString.split(' ');
       for (String group in sensorGroups) {
         List<String> parts = group.split(':');
         if (parts.length == 2) {
           String sensorType = parts[0];
-          List<double> values = parts[1].split(',')
-              .map((s) => double.tryParse(s) ?? 0.0)
-              .toList();
-          sensorData[sensorType] = values;
+          String valueStr = parts[1];
+          
+          if (sensorType == 'PITCH' || sensorType == 'ROLL' || sensorType == 'YAW') {
+            // Single value for angles
+            sensorData[sensorType] = double.tryParse(valueStr) ?? 0.0;
+          } else {
+            // Multiple values for sensors (ACC, GYR, MAG)
+            List<double> values = valueStr.split(',')
+                .map((s) => double.tryParse(s) ?? 0.0)
+                .toList();
+            sensorData[sensorType] = values;
+          }
         }
       }
 
       if (sensorData.containsKey('ACC') && 
           sensorData.containsKey('GYR') && 
-          sensorData.containsKey('MAG')) {
+          sensorData.containsKey('MAG') &&
+          sensorData.containsKey('PITCH') &&
+          sensorData.containsKey('ROLL') &&
+          sensorData.containsKey('YAW')) {
         
         // Calculate speed from acceleration
         double accMagnitude = sqrt(
-          pow(sensorData['ACC']![0], 2) +
-          pow(sensorData['ACC']![1], 2) +
-          pow(sensorData['ACC']![2], 2)
+          pow(sensorData['ACC'][0], 2) +
+          pow(sensorData['ACC'][1], 2) +
+          pow(sensorData['ACC'][2], 2)
         );
         
-        // Calculate angle from accelerometer
-        double pitch = atan2(sensorData['ACC']![1], 
-          sqrt(pow(sensorData['ACC']![0], 2) + pow(sensorData['ACC']![2], 2))) * 180.0 / pi;
-        double roll = atan2(-sensorData['ACC']![0], sensorData['ACC']![2]) * 180.0 / pi;
+        // Use the angles provided by ESP32
+        double pitch = sensorData['PITCH'];
+        double roll = sensorData['ROLL'];
+        double yaw = sensorData['YAW'];
         
         // Calculate power (simplified model based on acceleration and angular velocity)
         double gyrMagnitude = sqrt(
-          pow(sensorData['GYR']![0], 2) +
-          pow(sensorData['GYR']![1], 2) +
-          pow(sensorData['GYR']![2], 2)
+          pow(sensorData['GYR'][0], 2) +
+          pow(sensorData['GYR'][1], 2) +
+          pow(sensorData['GYR'][2], 2)
         );
         double power = accMagnitude * gyrMagnitude / 1000; // Simplified power calculation
         
         // Determine direction based on gyroscope data
         String direction = "Unknown";
-        double yawRate = sensorData['GYR']![2]; // Z-axis rotation
+        double yawRate = sensorData['GYR'][2]; // Z-axis rotation
         if (yawRate.abs() > 50) {
           direction = yawRate > 0 ? "Clockwise" : "Counter-Clockwise";
         }
@@ -363,7 +374,8 @@ class BLEService {
             'gyr': sensorData['GYR'],
             'mag': sensorData['MAG'],
             'pitch': pitch,
-            'roll': roll
+            'roll': roll,
+            'yaw': yaw
           }
         };
 
@@ -371,7 +383,7 @@ class BLEService {
         _dataController.add(processedData);
         _debugController.add("Data processed successfully");
       } else {
-        _debugController.add("Invalid data format. Expected ACC, GYR, and MAG values");
+        _debugController.add("Invalid data format. Expected ACC, GYR, MAG, PITCH, ROLL, and YAW values");
       }
     } catch (e) {
       _debugController.add("Data parse error: $e");

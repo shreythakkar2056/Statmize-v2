@@ -48,7 +48,9 @@ class CSVService {
       print('Saving data for $sport at $timestamp: acc=$acc, gyr=$gyr, mag=$mag');
       final file = await _getLocalFile(sport);
       final exists = await file.exists();
+      
       List<List<dynamic>> rows = [];
+      
       if (!exists) {
         // Add header row if file doesn't exist
         rows.add([
@@ -71,6 +73,7 @@ class CSVService {
           'Raw Data',
         ]);
       }
+      
       // Add data row
       rows.add([
         DateFormat('yyyy-MM-dd HH:mm:ss.SSS').format(timestamp),
@@ -91,14 +94,26 @@ class CSVService {
         suggestions?.join('; ') ?? '',
         rawData != null ? rawData.toString() : '',
       ]);
+      
       String csv = const ListToCsvConverter().convert(rows);
+      
       if (exists) {
-        await file.writeAsString('$csv\n', mode: FileMode.append);
+        // Read existing content and append properly
+        String existingContent = await file.readAsString();
+        // Ensure the file ends with a newline
+        if (!existingContent.endsWith('\n')) {
+          existingContent += '\n';
+        }
+        // Append new data
+        await file.writeAsString(existingContent + csv);
       } else {
-        await file.writeAsString(csv);
+        // Write new file with proper ending
+        await file.writeAsString(csv + '\n');
       }
+      
+      print('✅ CSV data saved successfully to: ${file.path}');
     } catch (e) {
-      print('Error saving sensor data: $e');
+      print('❌ Error saving sensor data: $e');
       rethrow;
     }
   }
@@ -165,6 +180,130 @@ class CSVService {
     } catch (e) {
       print('Error clearing data: $e');
       rethrow;
+    }
+  }
+
+  // Get the file path for a specific sport and date
+  Future<String> getFilePath(String sport, {String? date}) async {
+    final file = date == null
+        ? await _getLocalFile(sport)
+        : await _getLocalFileForDate(sport, date);
+    return file.path;
+  }
+
+  // Get file info (size, last modified, etc.)
+  Future<Map<String, dynamic>> getFileInfo(String sport, {String? date}) async {
+    try {
+      final file = date == null
+          ? await _getLocalFile(sport)
+          : await _getLocalFileForDate(sport, date);
+      
+      if (!await file.exists()) {
+        return {
+          'exists': false,
+          'path': file.path,
+          'size': 0,
+          'lastModified': null,
+          'rowCount': 0,
+        };
+      }
+
+      final stat = await file.stat();
+      final contents = await file.readAsString();
+      final lines = contents.split('\n').where((line) => line.trim().isNotEmpty).length;
+      
+      return {
+        'exists': true,
+        'path': file.path,
+        'size': stat.size,
+        'lastModified': stat.modified,
+        'rowCount': lines - 1, // Subtract header row
+      };
+    } catch (e) {
+      print('Error getting file info: $e');
+      return {
+        'exists': false,
+        'path': '',
+        'size': 0,
+        'lastModified': null,
+        'rowCount': 0,
+        'error': e.toString(),
+      };
+    }
+  }
+
+  // Export CSV to a more accessible location
+  Future<String?> exportCSV(String sport, {String? date}) async {
+    try {
+      final sourceFile = date == null
+          ? await _getLocalFile(sport)
+          : await _getLocalFileForDate(sport, date);
+      
+      if (!await sourceFile.exists()) {
+        print('❌ Source CSV file does not exist');
+        return null;
+      }
+
+      // Get downloads directory or documents directory
+      Directory? targetDir;
+      try {
+        targetDir = await getDownloadsDirectory();
+      } catch (e) {
+        targetDir = await getApplicationDocumentsDirectory();
+      }
+
+      final today = DateFormat('yyyyMMdd').format(DateTime.now());
+      final fileName = 'sensor_data_${sport}_${date ?? today}_export.csv';
+      final targetFile = File('${targetDir!.path}/$fileName');
+
+      // Copy the file
+      await sourceFile.copy(targetFile.path);
+      
+      print('✅ CSV exported to: ${targetFile.path}');
+      return targetFile.path;
+    } catch (e) {
+      print('❌ Error exporting CSV: $e');
+      return null;
+    }
+  }
+
+  // Validate CSV format
+  Future<bool> validateCSV(String sport, {String? date}) async {
+    try {
+      final file = date == null
+          ? await _getLocalFile(sport)
+          : await _getLocalFileForDate(sport, date);
+      
+      if (!await file.exists()) {
+        print('❌ CSV file does not exist');
+        return false;
+      }
+
+      final contents = await file.readAsString();
+      if (contents.trim().isEmpty) {
+        print('❌ CSV file is empty');
+        return false;
+      }
+
+      // Try to parse the CSV
+      List<List<dynamic>> rows = const CsvToListConverter().convert(contents);
+      
+      if (rows.isEmpty) {
+        print('❌ CSV has no rows');
+        return false;
+      }
+
+      // Check header
+      if (rows[0].length < 20) {
+        print('❌ CSV header is incomplete (expected 20+ columns, got ${rows[0].length})');
+        return false;
+      }
+
+      print('✅ CSV format is valid. Rows: ${rows.length}, Columns: ${rows[0].length}');
+      return true;
+    } catch (e) {
+      print('❌ CSV validation failed: $e');
+      return false;
     }
   }
 } 
