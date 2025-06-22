@@ -254,31 +254,58 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _startNewSession() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _buildSessionTypeModal(),
+      builder: (context) {
+        if (isTablet) {
+          // For tablets, show a centered dialog
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: _buildSessionTypeModal(isTablet: true),
+            ),
+          );
+        } else {
+          // For phones, show a traditional bottom sheet
+          return DraggableScrollableSheet(
+            initialChildSize: 0.6,
+            minChildSize: 0.4,
+            maxChildSize: 0.8,
+            builder: (_, controller) => _buildSessionTypeModal(
+              isTablet: false,
+              scrollController: controller,
+            ),
+          );
+        }
+      },
     );
   }
 
-  Widget _buildSessionTypeModal() {
-    final double modalHeight = MediaQuery.of(context).size.height * 0.75;
+  Widget _buildSessionTypeModal({required bool isTablet, ScrollController? scrollController}) {
+    final borderRadius = isTablet
+        ? const BorderRadius.all(Radius.circular(24))
+        : const BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          );
+
     return Container(
-      constraints: BoxConstraints(
-        maxHeight: modalHeight,
-      ),
+      margin: isTablet ? const EdgeInsets.all(16) : EdgeInsets.zero,
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
+        borderRadius: borderRadius,
       ),
       child: SingleChildScrollView(
+        controller: scrollController,
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
@@ -298,22 +325,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              SizedBox(
-                height: 340, // More space for the grid
-                child: GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 18,
-                  mainAxisSpacing: 18,
-                  childAspectRatio: 1.1,
-                  children: [
-                    _buildSportCard("Cricket", Icons.sports_cricket, Colors.green),
-                    _buildSportCard("Tennis", Icons.sports_tennis, Colors.blue),
-                    _buildSportCard("Badminton", Icons.sports_tennis, Colors.orange),
-                    _buildSportCard("Custom", Icons.sports, Colors.purple),
-                  ],
-                ),
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                crossAxisSpacing: 18,
+                mainAxisSpacing: 18,
+                childAspectRatio: 1.1,
+                children: [
+                  _buildSportCard("Cricket", Icons.sports_cricket, Colors.green),
+                  _buildSportCard("Tennis", Icons.sports_tennis, Colors.blue),
+                  _buildSportCard("Badminton", Icons.sports_tennis, Colors.orange),
+                  _buildSportCard("Custom", Icons.sports, Colors.purple),
+                ],
               ),
             ],
           ),
