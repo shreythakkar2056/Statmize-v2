@@ -509,12 +509,12 @@ class _SessionPageState extends State<SessionPage> {
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
+              value,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
               ),
             ),
             Text(
@@ -560,12 +560,12 @@ class _SessionPageState extends State<SessionPage> {
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                displayDirection,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
+              displayDirection,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
               ),
             ),
             Text(
@@ -725,18 +725,18 @@ class _SessionPageState extends State<SessionPage> {
                     final aspectRatio = cardWidth / cardHeight;
 
                     return GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
                       childAspectRatio: aspectRatio,
-                      children: [
-                        _buildDataCard("Speed", "${latestData['speed'].toStringAsFixed(1)} m/s", Icons.speed, Colors.blue),
-                        _buildDataCard("Power", "${latestData['power'].toStringAsFixed(0)} W", Icons.bolt, Colors.orange),
-                        _buildDataCard("Angle", "${latestData['angle'].toStringAsFixed(1)}°", Icons.rotate_right, Colors.green),
-                        _buildDirectionCard(latestData['direction'], Icons.navigation, Colors.purple),
-                      ],
+                    children: [
+                      _buildDataCard("Speed", "${latestData['speed'].toStringAsFixed(1)} m/s", Icons.speed, Colors.blue),
+                      _buildDataCard("Power", "${latestData['power'].toStringAsFixed(0)} W", Icons.bolt, Colors.orange),
+                      _buildDataCard("Angle", "${latestData['angle'].toStringAsFixed(1)}°", Icons.rotate_right, Colors.green),
+                      _buildDirectionCard(latestData['direction'], Icons.navigation, Colors.purple),
+                    ],
                     );
                   }),
                   

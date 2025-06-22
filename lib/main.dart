@@ -64,8 +64,8 @@ class _MyAppState extends State<MyApp> {
             return HomeScreen(
               themeMode: _themeMode,
               onThemeModeChanged: _toggleTheme,
-            );
-          }
+    );
+  }
 
           return LoginScreen(onSkip: _onLoginSkipped);
         },
