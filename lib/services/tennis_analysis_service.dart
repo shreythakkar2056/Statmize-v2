@@ -64,6 +64,13 @@ class TennisAnalysisService {
   // Public method to analyze shots from ESP32 data
   Future<void> analyzeShot(String esp32Data) async {
     try {
+      // Check if enough time has passed since last shot (cooldown)
+      final now = DateTime.now();
+      if (_lastShotTime != null && 
+          now.difference(_lastShotTime!).inMilliseconds < COOLDOWN_PERIOD * 1000) {
+        debugPrint('⏰ Shot analysis skipped - cooldown period');
+        return;
+      }
       debugPrint('🎾 Analyzing ESP32 data: $esp32Data');
       
       // Parse ESP32 data format: "ACC:x,y,z GYR:x,y,z MAG:x,y,z PITCH:p ROLL:r YAW:y"
@@ -73,14 +80,6 @@ class TennisAnalysisService {
         _addToBuffer(sensorData);
         _analyzeRealTime(sensorData);
         
-        // Check if enough time has passed since last shot
-        final now = DateTime.now();
-        if (_lastShotTime != null && 
-            now.difference(_lastShotTime!).inMilliseconds < COOLDOWN_PERIOD * 1000) {
-          debugPrint('⏰ Shot analysis skipped - cooldown period');
-          return;
-        }
-
         _lastShotTime = now;
         _analyzeShot(sensorData);
       } else {
@@ -372,26 +371,6 @@ class TennisAnalysisService {
     final horizontalAcc = sqrt(pow(acc[0], 2) + pow(acc[2], 2)); // X-Z plane acceleration
     final rotationSpeed = gyr[1].abs(); // Y-axis rotation (for topspin/backspin)
     final swingSpeed = gyrMagnitude;
-
-    // Save raw sensor data to CSV
-    await _csvService.saveSensorData(
-      sport: 'Tennis',
-      acc: acc,
-      gyr: gyr,
-      mag: mag,
-      swingType: 'Raw Data',
-      timestamp: DateTime.now(),
-      accMagnitude: accMagnitude,
-      gyrMagnitude: gyrMagnitude,
-      magMagnitude: magMagnitude,
-      verticalAcc: verticalAcc,
-      horizontalAcc: horizontalAcc,
-      rotationSpeed: rotationSpeed,
-      swingSpeed: swingSpeed,
-      pitch: pitch,
-      roll: roll,
-      intensity: 0.0, // Default intensity for raw data
-    );
 
     // Updated shot detection thresholds for ESP32 data
     final bool isSignificantMovement = accMagnitude > SHOT_THRESHOLD;

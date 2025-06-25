@@ -783,7 +783,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   subtitle: actionCardData[selectedSport]!['Analytics']["subtitle"],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               // 6. Performance metrics
               PerformanceMetricsCard(metrics: performanceMetrics[selectedSport]!),
               const SizedBox(height: 16),
@@ -792,6 +792,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 16),
               // 8. AI insights
               AIInsightsCard(insight: aiInsights[selectedSport]!),
+               const SizedBox(height: 16),
             ],
           ),
         ),

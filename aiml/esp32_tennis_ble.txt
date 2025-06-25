@@ -34,7 +34,7 @@ SimpleKalmanFilter kfX(0.02, 0.05, 0.01);
 SimpleKalmanFilter kfY(0.02, 0.05, 0.01);
 SimpleKalmanFilter kfZ(0.02, 0.05, 0.01);
 
-const int BUFFER_SIZE = 200;
+const int BUFFER_SIZE = 100;
 String preSpikeBuffer[BUFFER_SIZE];
 int bufferIndex = 0;
 
@@ -79,7 +79,7 @@ void setup() {
   Serial.println("✅ ICM-20948 initialized");
 
   BLEDevice::init("ESP32_IMU");
-  BLEDevice::setMTU(200); // <-- Set MTU to 200 here
+  BLEDevice::setMTU(200);
   BLEServer *pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyCallbacks());
 
@@ -112,7 +112,6 @@ void loop() {
     float rawZ = myICM.accZ();
     float gx = myICM.gyrX();
     float gy = myICM.gyrY();
-    float gz = myICM.gyrZ();
     float magX = myICM.magX();
     float magY = myICM.magY();
     float magZ = myICM.magZ();
@@ -120,10 +119,12 @@ void loop() {
     float accX = kfX.update(rawX);
     float accY = kfY.update(rawY);
     float accZ = kfZ.update(rawZ);
-    float pitch = atan2(-accY, accZ) * 180.0 / PI;
-    float roll  = atan2(-accX, accZ) * 180.0 / PI;
+    float pitch = atan2(-accY, accZ)*180.0 / PI;
+    float roll  = atan2(-accX, accZ)*180.0 / PI;
     float pitchRad = atan2(-accY, accZ);
-    float rollrad = atan2(-accX, accZ);
+    float rollrad = atan2(-accX , accZ);
+
+    
 
     // Tilt-compensated Yaw using magnetometer
     float yawRad = atan2(
@@ -133,11 +134,11 @@ void loop() {
        magZ * sin(pitchRad) * cos(rollrad)
     );
     float yaw = yawRad * 180.0 / PI;
-    if (yaw  < 0 ) yaw += 360.0;
+    if (yaw  < 0 ) yaw +=360.0;
     if (pitch < 0) pitch += 360.0;
     if (roll < 0) roll += 360.0;
 
-    float deltaX = accX - lastAccX;
+    float  deltaX = accX - lastAccX;
     float deltaY = accY - lastAccY;
     float deltaZ = accZ - lastAccZ;
     float deltaMag = sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
@@ -146,6 +147,7 @@ void loop() {
     lastAccY = accY;
     lastAccZ = accZ;
 
+
     float pitchChange = fabs(pitch - lastPitch);
     float rollChange = fabs(roll - lastRoll);
     lastPitch = pitch;
@@ -153,9 +155,9 @@ void loop() {
 
     // Format sensor data
     String data = "ACC:" + String(accX, 1) + "," + String(accY, 1) + "," + String(accZ, 1) +
-                  " GYR:" + String(gx, 1) + "," + String(gy, 1) + "," + String(gz, 1) +
-                  " MAG:" + String(magX, 1) + "," + String(magY, 1) + "," + String(magZ, 1) +
-                  " PITCH:" + String(pitch) + " ROLL:" + String(roll) + " YAW:" + String(yaw);
+                  " GYR:" + String(myICM.gyrX(), 1) + "," + String(myICM.gyrY(), 1) + "," + String(myICM.gyrZ(), 1) +
+                  " MAG:" + String(myICM.magX(), 1) + "," + String(myICM.magY(), 1) + "," + String(myICM.magZ(), 1) +
+                  " PITCH:" + String(pitch, 1) +  " ROLL:" + String(roll, 1) + " YAW:" + String(yaw, 1)  ;
 
     // Store in circular buffer
     preSpikeBuffer[bufferIndex] = data;
@@ -190,11 +192,11 @@ void loop() {
       Serial.println(data);
       pCharacteristic->setValue(data.c_str());
       pCharacteristic->notify();
-      if (millis() - captureStart >= 2000) {
+      if (millis() - captureStart >= 1000) {
         captureWindow = false;
       }
     }
 
     delay(5); // ~200 Hz
   }
-} 
+}
