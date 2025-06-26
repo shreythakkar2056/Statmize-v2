@@ -371,7 +371,7 @@ class _SessionPageState extends State<SessionPage> {
 
           // Calculate speed from acceleration magnitude
           final accMagnitude = sqrt(
-            pow(acc[0], 2) + pow(acc[1], 2) + pow(acc[2], 2)
+            pow(acc[0], 2) + pow(acc[1], 2) + pow(acc[2], 2) - 9.81
           );
           final speed = accMagnitude / 100; // Scale down for more reasonable values
 
@@ -841,8 +841,6 @@ class _SessionPageState extends State<SessionPage> {
                     children: [
                       _buildDataCard("Speed", "${latestData['speed'].toStringAsFixed(1)} m/s", Icons.speed, Colors.blue),
                       _buildDataCard("Power", "${latestData['power'].toStringAsFixed(0)} W", Icons.bolt, Colors.orange),
-                      _buildDataCard("Angle", "${latestData['angle'].toStringAsFixed(1)}°", Icons.rotate_right, Colors.green),
-                      _buildDirectionCard(latestData['direction'], Icons.navigation, Colors.purple),
                     ],
                     );
                   }),

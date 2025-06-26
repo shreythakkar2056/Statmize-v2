@@ -6,6 +6,8 @@ import 'package:app/widgets/profile_modal.dart';
 import 'package:app/core/session_page.dart';
 import 'package:app_settings/app_settings.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:app/widgets/reusable/floating_navbar.dart';
+import 'package:app/screens/profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final ThemeMode themeMode;
@@ -34,6 +36,8 @@ class _HomeScreenState extends State<HomeScreen> {
   List<dynamic> nearbyDevices = [];
   String selectedAction = "Start Session";
   String _userName = 'User';
+  int _selectedNavIndex = 0;
+  bool _showBluetoothCard = false;
 
   final Map<String, Map<String, dynamic>> sportStats = {
     "Cricket": {
@@ -595,207 +599,291 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Color _getBluetoothIconColor() {
+    if (bleService.isConnected) return Colors.green;
+    if (bleService.isScanning || bleService.isConnecting) return Colors.orange;
+    return Colors.red;
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Hide the Bluetooth card as soon as the device is connected
+    if (bleService.isConnected && _showBluetoothCard) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _showBluetoothCard = false);
+      });
+    }
     return Scaffold(
-      appBar: AppBar(
-        leadingWidth: 200,
-        leading: GestureDetector(
-          onTap: _showProfileModal,
-          child: Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                  child: Icon(
-                    Icons.person,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Hello, $_userName!',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              bleService.isScanning ? Icons.bluetooth_searching : Icons.bluetooth_outlined,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-            onPressed: () => bleService.startScan(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            color: Theme.of(context).colorScheme.onSurface,
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Enhanced Sport Selection Tabs (now at the top)
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _enhancedSportTab(
-                      label: "Cricket",
-                      icon: Icons.sports_cricket,
-                      isSelected: selectedSport == "Cricket",
-                      onTap: () {
-                        setState(() {
-                          selectedSport = "Cricket";
-                        });
-                      },
-                      selectedColor: Theme.of(context).colorScheme.primary,
-                      unselectedColor: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white.withOpacity(0.07)
-                          : Colors.grey.shade100,
-                    ),
-                    const SizedBox(width: 12),
-                    _enhancedSportTab(
-                      label: "Tennis",
-                      icon: Icons.sports_tennis,
-                      isSelected: selectedSport == "Tennis",
-                      onTap: () {
-                        setState(() {
-                          selectedSport = "Tennis";
-                        });
-                      },
-                      selectedColor: Theme.of(context).colorScheme.primary,
-                      unselectedColor: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white.withOpacity(0.07)
-                          : Colors.grey.shade100,
-                    ),
-                    const SizedBox(width: 12),
-                    _enhancedSportTab(
-                      label: "Badminton",
-                      icon: Icons.sports_tennis,
-                      isSelected: selectedSport == "Badminton",
-                      onTap: () {
-                        setState(() {
-                          selectedSport = "Badminton";
-                        });
-                      },
-                      selectedColor: Theme.of(context).colorScheme.primary,
-                      unselectedColor: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white.withOpacity(0.07)
-                          : Colors.grey.shade100,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              // 1. Bluetooth state card
-              _buildEnhancedConnectionCardWithShadow(context, bleService),
-              const SizedBox(height: 20),
-              // 2. Today's session
-              SessionStatCard(
-                title: "Today's Session",
-                duration: sportStats[selectedSport]!['duration'],
-                stats: List<StatItem>.from(sportStats[selectedSport]!['stats']),
-                gradientColors: List<Color>.from(sportStats[selectedSport]!['gradientColors']),
-                isFullWidth: true,
-              ),
-              const SizedBox(height: 20),
-              // 3. Weekly progress
-              WeeklyProgressCard(
-                title: "Weekly Progress",
-                date: weeklyProgressData[selectedSport]!['date'],
-                percent: weeklyProgressData[selectedSport]!['percent'],
-                percentLabel: weeklyProgressData[selectedSport]!['percentLabel'],
-                goalLabel: weeklyProgressData[selectedSport]!['goalLabel'],
-                gradientColors: List<Color>.from(weeklyProgressData[selectedSport]!['gradientColors']),
-              ),
-              const SizedBox(height: 20),
-              // 4. Start session button
-              SizedBox(
-                width: double.infinity,
-                height: 60,
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.18),
-                        blurRadius: 24,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: ElevatedButton(
-                    onPressed: _startNewSession,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context).brightness == Brightness.dark
-                          ? const Color(0xFF0A0E25)
-                          : Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // App bar content moved here
+                  Padding(
+                    padding: const EdgeInsets.only(top: 40, left: 12, right: 8, bottom: 40),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Icon(Icons.play_arrow, size: 28),
-                        const SizedBox(width: 12),
-                        Text(
-                          "Start New Session",
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Hello, $_userName!',
+                                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                  letterSpacing: 0.2,
+                                  fontSize: 24,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Ready for your training session?',
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                  fontSize: 15,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
                           ),
+                        ),
+                        const SizedBox(width: 20),
+                        Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                if (!bleService.isConnected) {
+                                  setState(() {
+                                    _showBluetoothCard = true;
+                                  });
+                                  bleService.startScan();
+                                }
+                              },
+                              child: CircleAvatar(
+                                backgroundColor: Theme.of(context).brightness == Brightness.light
+                                  ? Colors.grey.shade200
+                                  : Theme.of(context).cardColor,
+                                radius: 20,
+                                child: Icon(
+                                  bleService.isConnected
+                                    ? Icons.bluetooth_connected
+                                    : bleService.isScanning || bleService.isConnecting
+                                      ? Icons.bluetooth_searching
+                                      : Icons.bluetooth_disabled,
+                                  color: _getBluetoothIconColor(),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            CircleAvatar(
+                              backgroundColor: Theme.of(context).brightness == Brightness.light
+                                ? Colors.grey.shade200
+                                : Theme.of(context).cardColor,
+                              radius: 20,
+                              child: IconButton(
+                                icon: const Icon(Icons.notifications_outlined),
+                                color: Theme.of(context).colorScheme.onSurface,
+                                onPressed: () {},
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                ),
+                  // Enhanced Sport Selection Tabs (now at the top)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _enhancedSportTab(
+                          label: "Cricket",
+                          icon: Icons.sports_cricket,
+                          isSelected: selectedSport == "Cricket",
+                          onTap: () {
+                            setState(() {
+                              selectedSport = "Cricket";
+                            });
+                          },
+                          selectedColor: Theme.of(context).colorScheme.primary,
+                          unselectedColor: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white.withOpacity(0.07)
+                              : Colors.grey.shade100,
+                        ),
+                        const SizedBox(width: 12),
+                        _enhancedSportTab(
+                          label: "Tennis",
+                          icon: Icons.sports_tennis,
+                          isSelected: selectedSport == "Tennis",
+                          onTap: () {
+                            setState(() {
+                              selectedSport = "Tennis";
+                            });
+                          },
+                          selectedColor: Theme.of(context).colorScheme.primary,
+                          unselectedColor: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white.withOpacity(0.07)
+                              : Colors.grey.shade100,
+                        ),
+                        const SizedBox(width: 12),
+                        _enhancedSportTab(
+                          label: "Badminton",
+                          icon: Icons.sports_tennis,
+                          isSelected: selectedSport == "Badminton",
+                          onTap: () {
+                            setState(() {
+                              selectedSport = "Badminton";
+                            });
+                          },
+                          selectedColor: Theme.of(context).colorScheme.primary,
+                          unselectedColor: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white.withOpacity(0.07)
+                              : Colors.grey.shade100,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // 1. Bluetooth state card
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 400),
+                    child: (!bleService.isConnected && _showBluetoothCard)
+                      ? _buildEnhancedConnectionCardWithShadow(context, bleService)
+                      : const SizedBox.shrink(),
+                  ),
+                  const SizedBox(height: 20),
+                  // 2. Today's session
+                  SessionStatCard(
+                    title: "Today's Session",
+                    duration: sportStats[selectedSport]!['duration'],
+                    stats: List<StatItem>.from(sportStats[selectedSport]!['stats']),
+                    gradientColors: List<Color>.from(sportStats[selectedSport]!['gradientColors']),
+                    isFullWidth: true,
+                  ),
+                  const SizedBox(height: 20),
+                  // 3. Weekly progress
+                  WeeklyProgressCard(
+                    title: "Weekly Progress",
+                    date: weeklyProgressData[selectedSport]!['date'],
+                    percent: weeklyProgressData[selectedSport]!['percent'],
+                    percentLabel: weeklyProgressData[selectedSport]!['percentLabel'],
+                    goalLabel: weeklyProgressData[selectedSport]!['goalLabel'],
+                    gradientColors: List<Color>.from(weeklyProgressData[selectedSport]!['gradientColors']),
+                  ),
+                  const SizedBox(height: 20),
+                  // 4. Start session button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 60,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.18),
+                            blurRadius: 24,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton(
+                        onPressed: _startNewSession,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFF0A0E25)
+                              : Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.play_arrow, size: 28),
+                            const SizedBox(width: 12),
+                            Text(
+                              "Start New Session",
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // 5. Analytics
+                  SizedBox(
+                    height: 110,
+                    child: ActionCard(
+                      icon: actionCardData[selectedSport]!['Analytics']["icon"],
+                      iconBg: actionCardData[selectedSport]!['Analytics']["iconBg"],
+                      iconColor: actionCardData[selectedSport]!['Analytics']["iconColor"],
+                      title: actionCardData[selectedSport]!['Analytics']["title"],
+                      subtitle: actionCardData[selectedSport]!['Analytics']["subtitle"],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // 6. Performance metrics
+                  PerformanceMetricsCard(metrics: performanceMetrics[selectedSport]!),
+                  const SizedBox(height: 16),
+                  // 7. Best records
+                  BestRecordsCard(records: bestRecords[selectedSport]!),
+                  const SizedBox(height: 16),
+                  // 8. AI insights
+                  AIInsightsCard(insight: aiInsights[selectedSport]!),
+                  // Add extra space at the bottom for the floating navbar
+                  const SizedBox(height: 100),
+                ],
               ),
-              const SizedBox(height: 20),
-              // 5. Analytics
-              SizedBox(
-                height: 110,
-                child: ActionCard(
-                  icon: actionCardData[selectedSport]!['Analytics']["icon"],
-                  iconBg: actionCardData[selectedSport]!['Analytics']["iconBg"],
-                  iconColor: actionCardData[selectedSport]!['Analytics']["iconColor"],
-                  title: actionCardData[selectedSport]!['Analytics']["title"],
-                  subtitle: actionCardData[selectedSport]!['Analytics']["subtitle"],
-                ),
-              ),
-              const SizedBox(height: 16),
-              // 6. Performance metrics
-              PerformanceMetricsCard(metrics: performanceMetrics[selectedSport]!),
-              const SizedBox(height: 16),
-              // 7. Best records
-              BestRecordsCard(records: bestRecords[selectedSport]!),
-              const SizedBox(height: 16),
-              // 8. AI insights
-              AIInsightsCard(insight: aiInsights[selectedSport]!),
-               const SizedBox(height: 16),
-            ],
+            ),
           ),
-        ),
+          // Floating navbar
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: FloatingNavBar(
+              selectedIndex: _selectedNavIndex,
+              onTap: (index) {
+                if (index == 3) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ProfileScreen(
+                        themeMode: widget.themeMode,
+                        onThemeModeChanged: widget.onThemeModeChanged,
+                        userName: _userName,
+                        selectedNavIndex: 3,
+                        onNavTap: (navIndex) {
+                          Navigator.pop(context);
+                          setState(() {
+                            _selectedNavIndex = navIndex;
+                          });
+                        },
+                      ),
+                    ),
+                  );
+                } else {
+                  setState(() {
+                    _selectedNavIndex = index;
+                  });
+                }
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1443,6 +1531,7 @@ class AIInsightsCard extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 10),
           ],
         ),
       ),
