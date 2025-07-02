@@ -371,8 +371,8 @@ class _SessionPageState extends State<SessionPage> {
 
           // Calculate speed from acceleration magnitude
           final accMagnitude = sqrt(
-            pow(acc[0], 2) + pow(acc[1], 2) + pow(acc[2], 2) - 9.81
-          );
+            pow(acc[0], 2) + pow(acc[1], 2) + pow(acc[2], 2) 
+          )- 9.81;
           final speed = accMagnitude / 100; // Scale down for more reasonable values
 
           // Calculate power (simplified model)
