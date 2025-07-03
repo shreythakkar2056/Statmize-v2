@@ -5,14 +5,15 @@
 #include <BLEServer.h>
 #include <BLE2902.h>
 
-ICM_20948_I2C myICM;
-BLECharacteristic *pCharacteristic;
-bool deviceConnected = false;
-
+// BLE UUIDs
 #define SERVICE_UUID        "12345678-1234-5678-1234-56789abcdef0"
 #define CHARACTERISTIC_UUID "abcdef01-1234-5678-1234-56789abcdef0"
 
-// Kalman Filter
+ICM_20948_I2C imu;
+BLECharacteristic *pCharacteristic;
+bool deviceConnected = false;
+
+// Kalman Filter class
 class SimpleKalmanFilter {
   float est, errEst, errMeas, q;
 public:
@@ -30,25 +31,43 @@ public:
   }
 };
 
+// Kalman Filters
 SimpleKalmanFilter kfX(0.02, 0.05, 0.01);
 SimpleKalmanFilter kfY(0.02, 0.05, 0.01);
 SimpleKalmanFilter kfZ(0.02, 0.05, 0.01);
 
+// Constants
 const int BUFFER_SIZE = 100;
-String preSpikeBuffer[BUFFER_SIZE];
+String buffer[BUFFER_SIZE];
 int bufferIndex = 0;
 
+float lastAccMag = 0;
 float lastAccX = 0, lastAccY = 0, lastAccZ = 0;
 float lastPitch = 0, lastRoll = 0;
 
+unsigned long lastTime = 0;
+unsigned long triggerStartTime = 0;
+bool triggerActive = false;
+bool preBufferSent = false;
+
+// Thresholds
+const float JERK_THRESHOLD = 50000.0;
+const float GYRO_Y_THRESHOLD = 250.0;
 const float PITCH_THRESHOLD = 20.0;
 const float ROLL_THRESHOLD = 10.0;
 const float ACCEL_THRESHOLD = 700.0;
+const unsigned long POST_TRIGGER_TIME = 1000;
 
-unsigned long lastUpdate = 0;
-bool captureWindow = false;
-unsigned long captureStart = 0;
-bool sentPreSpike = false;
+class MyCallbacks : public BLEServerCallbacks {
+  void onConnect(BLEServer* pServer) {
+    deviceConnected = true;
+  }
+  void onDisconnect(BLEServer* pServer) {
+    deviceConnected = false;
+    delay(100);
+    pServer->getAdvertising()->start();
+  }
+};
 
 void configureFSR() {
   Wire.beginTransmission(0x69);
@@ -90,33 +109,16 @@ void configureFSR() {
   delay(10);
 }
 
-class MyCallbacks : public BLEServerCallbacks {
-  void onConnect(BLEServer* pServer) {
-    deviceConnected = true;
-    Serial.println("✅ BLE Connected");
-  }
-  void onDisconnect(BLEServer* pServer) {
-    deviceConnected = false;
-    Serial.println("❌ BLE Disconnected");
-    delay(500); // Wait for BLE stack to stabilize
-    if (!pServer->getAdvertising()->start()) {
-      Serial.println("❌ Failed to restart advertising");
-    } else {
-      Serial.println("📡 BLE Advertising restarted");
-    }
-  }
-};
-
 void setup() {
   Serial.begin(115200);
   delay(1000);
   Wire.begin(6, 7);
 
-  if (myICM.begin(Wire) != ICM_20948_Stat_Ok) {
-    Serial.println("❌ ICM-20948 not detected");
+  if (imu.begin(Wire, 0x69) != ICM_20948_Stat_Ok) {
     while (1);
   }
-  Serial.println("✅ ICM-20948 initialized");
+
+  configureFSR();
 
   BLEDevice::init("ESP32_IMU");
   BLEDevice::setMTU(200);
@@ -131,112 +133,108 @@ void setup() {
   pCharacteristic->addDescriptor(new BLE2902());
   pService->start();
 
-  // Configure advertising parameters
   BLEAdvertising *pAdvertising = pServer->getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->setScanResponse(true);
-  pAdvertising->setMinPreferred(0x06);
-  pAdvertising->setMaxPreferred(0x12);
   pAdvertising->start();
 
-  Serial.println("📡 BLE Advertising started as 'ESP32_IMU'");
-  lastUpdate = millis();
+  lastTime = millis();
 }
 
 void loop() {
-  if (deviceConnected && myICM.dataReady()) {
-    myICM.getAGMT();
+  if (!deviceConnected || !imu.dataReady()) return;
 
-    float rawX = myICM.accX();
-    float rawY = myICM.accY();
-    float rawZ = myICM.accZ();
-    float gx = myICM.gyrX();
-    float gy = myICM.gyrY();
-    float magX = myICM.magX();
-    float magY = myICM.magY();
-    float magZ = myICM.magZ();
+  imu.getAGMT();
+  unsigned long now = millis();
+  float dt = (now - lastTime) / 1000.0;
+  lastTime = now;
 
-    float accX = kfX.update(rawX);
-    float accY = kfY.update(rawY);
-    float accZ = kfZ.update(rawZ);
-    float pitch = atan2(-accY, accZ)*180.0 / PI;
-    float roll  = atan2(-accX, accZ)*180.0 / PI;
-    float pitchRad = atan2(-accY, accZ);
-    float rollrad = atan2(-accX , accZ);
+  float rawX = imu.accX();
+  float rawY = imu.accY();
+  float rawZ = imu.accZ();
+  float gyroY = imu.gyrY();
+  float magX = imu.accX();
+  float magY = imu.accY();
+  float magZ = imu.accZ();
+  float accX = kfX.update(rawX);
+  float accY = kfY.update(rawY);
+  float accZ = kfZ.update(rawZ);
 
-    
+  float accMag = sqrt(accX * accX + accY * accY + accZ * accZ);
+  float jerk = (accMag - lastAccMag) / dt;
+  lastAccMag = accMag;
 
-    // Tilt-compensated Yaw using magnetometer
-    float yawRad = atan2(
-      -magY * cos(rollrad) + magZ * sin(rollrad),
-       magX * cos(pitchRad) +
-       magY * sin(pitchRad) * sin(rollrad) +
-       magZ * sin(pitchRad) * cos(rollrad)
-    );
-    float yaw = yawRad * 180.0 / PI;
-    if (yaw  < 0 ) yaw +=360.0;
-    if (pitch < 0) pitch += 360.0;
-    if (roll < 0) roll += 360.0;
+  float pitch = atan2(accY, accZ) * 180.0 / PI;
+  float roll  = atan2(accX, accZ) * 180.0 / PI;
+  float pitchRad = atan2(-accY, accZ);
+  float rollrad = atan2(-accX , accZ);
 
-    float  deltaX = accX - lastAccX;
-    float deltaY = accY - lastAccY;
-    float deltaZ = accZ - lastAccZ;
-    float deltaMag = sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+  float yawRad = atan2(
+    -magY * cos(rollrad) + magZ * sin(rollrad),
+     magX * cos(pitchRad) +
+     magY * sin(pitchRad) * sin(rollrad) +
+     magZ * sin(pitchRad) * cos(rollrad)
+  );
+  float yaw = yawRad * 180.0 / PI;
+  if (yaw  < 0 ) yaw +=360.0;
+  if (pitch < 0) pitch += 360.0;
+  if (roll < 0) roll += 360.0;
 
-    lastAccX = accX;
-    lastAccY = accY;
-    lastAccZ = accZ;
+  float deltaX = accX - lastAccX;
+  float deltaY = accY - lastAccY;
+  float deltaZ = accZ - lastAccZ;
+  float deltaMag = sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+  lastAccX = accX;
+  lastAccY = accY;
+  lastAccZ = accZ;
 
+  float pitchChange = fabs(pitch - lastPitch);
+  float rollChange = fabs(roll - lastRoll);
+  lastPitch = pitch;
+  lastRoll = roll;
 
-    float pitchChange = fabs(pitch - lastPitch);
-    float rollChange = fabs(roll - lastRoll);
-    lastPitch = pitch;
-    lastRoll = roll;
-
-    // Format sensor data
-    String data = "ACC:" + String(accX, 1) + "," + String(accY, 1) + "," + String(accZ, 1) +
-                  " GYR:" + String(myICM.gyrX(), 1) + "," + String(myICM.gyrY(), 1) + "," + String(myICM.gyrZ(), 1) +
-                  " MAG:" + String(myICM.magX(), 1) + "," + String(myICM.magY(), 1) + "," + String(myICM.magZ(), 1) +
+String data = "ACC:" + String(accX, 1) + "," + String(accY, 1) + "," + String(accZ, 1) +
+                  " GYR:" + String(imu.gyrX(), 1) + "," + String(imu.gyrY(), 1) + "," + String(imu.gyrZ(), 1) +
+                  " MAG:" + String(imu.magX(), 1) + "," + String(imu.magY(), 1) + "," + String(imu.magZ(), 1) +
                   " PITCH:" + String(pitch, 1) +  " ROLL:" + String(roll, 1) + " YAW:" + String(yaw, 1)  ;
 
-    // Store in circular buffer
-    preSpikeBuffer[bufferIndex] = data;
-    bufferIndex = (bufferIndex + 1) % BUFFER_SIZE;
+  buffer[bufferIndex] = data;
+  bufferIndex = (bufferIndex + 1) % BUFFER_SIZE;
 
-    // Detect spike
-    bool spike = ((rollChange > ROLL_THRESHOLD && pitchChange > PITCH_THRESHOLD) && deltaMag > ACCEL_THRESHOLD);
+  bool trigger = (abs(jerk) > JERK_THRESHOLD && abs(gyroY) > GYRO_Y_THRESHOLD) &&
+                 ((rollChange > ROLL_THRESHOLD && pitchChange > PITCH_THRESHOLD) && deltaMag > ACCEL_THRESHOLD);
 
-    if (spike && !captureWindow) {
-      captureWindow = true;
-      captureStart = millis();
-      sentPreSpike = false;
-    }
+  if (!triggerActive && trigger) {
+    triggerActive = true;
+    triggerStartTime = now;
+    preBufferSent = false;
+  }
 
-    // Send pre-spike buffer (only once)
-    if (captureWindow && !sentPreSpike) {
+  if (triggerActive) {
+    if (!preBufferSent) {
       for (int i = bufferIndex; i < BUFFER_SIZE; i++) {
-        pCharacteristic->setValue(preSpikeBuffer[i].c_str());
+        Serial.println(buffer[i]);
+        pCharacteristic->setValue(buffer[i].c_str());
         pCharacteristic->notify();
-        delay(5);
+        delay(1);
       }
       for (int i = 0; i < bufferIndex; i++) {
-        pCharacteristic->setValue(preSpikeBuffer[i].c_str());
+        Serial.println(buffer[i]);
+        pCharacteristic->setValue(buffer[i].c_str());
         pCharacteristic->notify();
-        delay(5);
+        delay(1);
       }
-      sentPreSpike = true;
+      preBufferSent = true;
     }
 
-    // During 2s post-spike capture
-    if (captureWindow) {
-      Serial.println(data);
-      pCharacteristic->setValue(data.c_str());
-      pCharacteristic->notify();
-      if (millis() - captureStart >= 1000) {
-        captureWindow = false;
-      }
-    }
+    Serial.println(data);
+    pCharacteristic->setValue(data.c_str());
+    pCharacteristic->notify();
 
-    delay(5); // ~200 Hz
+    if (now - triggerStartTime >= POST_TRIGGER_TIME) {
+      triggerActive = false;
+    }
   }
+
+  delay(5); // ~200 Hz
 }
