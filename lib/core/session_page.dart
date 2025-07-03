@@ -504,7 +504,7 @@ class _SessionPageState extends State<SessionPage> {
              "MAG:${mag[0].toStringAsFixed(1)},${mag[1].toStringAsFixed(1)},${mag[2].toStringAsFixed(1)} "
              "PITCH:${pitch.toStringAsFixed(1)} ROLL:${roll.toStringAsFixed(1)} YAW:${yaw.toStringAsFixed(1)}";
     } catch (e) {
-      print('Error reconstructing ESP32 data string: $e');
+      print('Error reconstructing or format of data ESP32 data string: $e');
       return null;
     }
   }

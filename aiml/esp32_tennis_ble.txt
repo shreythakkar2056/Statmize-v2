@@ -50,6 +50,46 @@ bool captureWindow = false;
 unsigned long captureStart = 0;
 bool sentPreSpike = false;
 
+void configureFSR() {
+  Wire.beginTransmission(0x69);
+  Wire.write(0x7F);  // REG_BANK_SEL_ADDR
+  Wire.write(0x20);  // Select User Bank 2
+  Wire.endTransmission();
+  delay(10);
+
+  Wire.beginTransmission(0x69);
+  Wire.write(0x01); // GYRO_CONFIG_1_ADDR
+  Wire.endTransmission(false);
+  Wire.requestFrom(0x69, 1);
+  byte gyroCfg = Wire.read();
+  gyroCfg &= ~0b00000110;
+  gyroCfg |= (0b11 << 1); // ±500 dps
+  Wire.beginTransmission(0x69);
+  Wire.write(0x01);
+  Wire.write(gyroCfg);
+  Wire.endTransmission();
+  delay(10);
+
+  Wire.beginTransmission(0x69);
+  Wire.write(0x14); // ACCEL_CONFIG_ADDR
+  Wire.endTransmission(false);
+  Wire.requestFrom(0x69, 1);
+  byte accelCfg = Wire.read();
+  accelCfg &= ~0b00000110;
+  accelCfg |= (0b11 << 1); // ±16g
+  Wire.beginTransmission(0x69);
+  Wire.write(0x14);
+  Wire.write(accelCfg);
+  Wire.endTransmission();
+  delay(10);
+
+  Wire.beginTransmission(0x69);
+  Wire.write(0x7F);
+  Wire.write(0x00);
+  Wire.endTransmission();
+  delay(10);
+}
+
 class MyCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer* pServer) {
     deviceConnected = true;
