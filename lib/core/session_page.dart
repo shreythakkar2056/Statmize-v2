@@ -170,7 +170,7 @@ class _ShotAnalysisWidgetState extends State<ShotAnalysisWidget> {
                                             children: [
                                               Text("Intensity: ", style: TextStyle(fontSize: 14)),
                                               Text(
-                                                shot.intensity.toStringAsFixed(1),
+                                                (shot.intensity ?? 0.0).toStringAsFixed(1),
                                                 style: TextStyle(
                                                   fontSize: 14,
                                                   fontWeight: FontWeight.bold,
@@ -322,6 +322,8 @@ class _SessionPageState extends State<SessionPage> {
   StreamSubscription? _shotCountsSubscription;
   StreamSubscription? _avgIntensitySubscription;
   
+  DateTime? lastShotTime;
+  
   @override
   void initState() {
     super.initState();
@@ -369,15 +371,15 @@ class _SessionPageState extends State<SessionPage> {
           final gyr = data['raw']['gyr'] as List<double>;
           final mag = data['raw']['mag'] as List<double>;
 
-          // Calculate speed from acceleration magnitude
-          final accMagnitude = sqrt(
-            pow(acc[0], 2) + pow(acc[1], 2) + pow(acc[2], 2) 
-          )- 9.81;
-          final speed = accMagnitude / 100; // Scale down for more reasonable values
+          // Use ESP32-provided speed
+          final peakSpeed = data['peakSpeed'] as double? ?? 0.0;
 
           // Calculate power (simplified model)
           final gyrMagnitude = sqrt(
             pow(gyr[0], 2) + pow(gyr[1], 2) + pow(gyr[2], 2)
+          );
+          final accMagnitude = sqrt(
+            pow(acc[0], 2) + pow(acc[1], 2) + pow(acc[2], 2)
           );
           final power = accMagnitude * gyrMagnitude / 1000;
 
@@ -395,7 +397,7 @@ class _SessionPageState extends State<SessionPage> {
 
           // Update latest data
           latestData = {
-            'speed': speed,
+            'peakSpeed': peakSpeed,
             'angle': pitch, // Use ESP32 pitch angle
             'power': power,
             'direction': direction,
@@ -403,12 +405,15 @@ class _SessionPageState extends State<SessionPage> {
           };
 
           // Update session stats
-          if (speed > maxSpeed) maxSpeed = speed;
+          if (peakSpeed > maxSpeed) maxSpeed = peakSpeed;
           if (power > maxPower) maxPower = power;
           
-          // Only count as swing if speed is significant
-          if (speed > 1.0) {
+          // Only count as swing if peakSpeed is significant
+          if (peakSpeed > 1.0) {
+            if (lastShotTime == null || DateTime.now().difference(lastShotTime!) > Duration(milliseconds: 500)) {
             swingCount++;
+              lastShotTime = DateTime.now();
+            }
           }
         });
         
@@ -493,16 +498,18 @@ class _SessionPageState extends State<SessionPage> {
       
       final acc = raw['acc'] as List<double>;
       final gyr = raw['gyr'] as List<double>;
-      final mag = raw['mag'] as List<double>;
+      final mag = raw['mag'] as List<double>?;
       final pitch = raw['pitch'] as double;
       final roll = raw['roll'] as double;
       final yaw = raw['yaw'] as double; // Use the YAW value from ESP32
-      
-      // Reconstruct ESP32 format: "ACC:x,y,z GYR:x,y,z MAG:x,y,z PITCH:p ROLL:r YAW:y"
-      return "ACC:${acc[0].toStringAsFixed(1)},${acc[1].toStringAsFixed(1)},${acc[2].toStringAsFixed(1)} "
+      final speed = raw['speed'] as double? ?? 0.0;
+      final peakSpeed = raw['peakSpeed'] as double? ?? 0.0;
+      // Reconstruct ESP32 format: "ACC:x,y,z GYR:x,y,z MAG:x,y,z PITCH:p ROLL:r YAW:y SPEED:s PEAK_SPEED:ps"
+      return "ACC: {acc[0].toStringAsFixed(1)},${acc[1].toStringAsFixed(1)},${acc[2].toStringAsFixed(1)} "
              "GYR:${gyr[0].toStringAsFixed(1)},${gyr[1].toStringAsFixed(1)},${gyr[2].toStringAsFixed(1)} "
-             "MAG:${mag[0].toStringAsFixed(1)},${mag[1].toStringAsFixed(1)},${mag[2].toStringAsFixed(1)} "
-             "PITCH:${pitch.toStringAsFixed(1)} ROLL:${roll.toStringAsFixed(1)} YAW:${yaw.toStringAsFixed(1)}";
+             "MAG:${mag != null ? mag[0].toStringAsFixed(1) : '0.0'},${mag != null ? mag[1].toStringAsFixed(1) : '0.0'},${mag != null ? mag[2].toStringAsFixed(1) : '0.0'} "
+             "PITCH:${pitch.toStringAsFixed(1)} ROLL:${roll.toStringAsFixed(1)} YAW:${yaw.toStringAsFixed(1)} "
+             "SPEED:${speed.toStringAsFixed(2)} PEAK_SPEED:${peakSpeed.toStringAsFixed(2)}";
     } catch (e) {
       print('Error reconstructing ESP32 data string: $e');
       return null;
@@ -746,7 +753,7 @@ class _SessionPageState extends State<SessionPage> {
           crossAxisSpacing: 8,
           childAspectRatio: aspectRatio,
           children: [
-            _buildDataCard("Max Speed", "${maxSpeed.toStringAsFixed(1)} m/s", Icons.flash_on, Colors.red),
+            _buildDataCard("Max Peak Speed", "${maxSpeed.toStringAsFixed(1)} m/s", Icons.flash_on, Colors.red),
             _buildDataCard("Max Power", "${maxPower.toStringAsFixed(0)} W", Icons.fitness_center, Colors.deepOrange),
             _buildDataCard("Swings", "$swingCount", Icons.sports_tennis, Colors.teal),
             _buildDataCard("Duration", _getSessionDuration(), Icons.timer, Colors.blue),
@@ -839,8 +846,8 @@ class _SessionPageState extends State<SessionPage> {
                     crossAxisSpacing: 8,
                       childAspectRatio: aspectRatio,
                     children: [
-                      _buildDataCard("Speed", "${latestData['speed'].toStringAsFixed(1)} m/s", Icons.speed, Colors.blue),
-                      _buildDataCard("Power", "${latestData['power'].toStringAsFixed(0)} W", Icons.bolt, Colors.orange),
+                      _buildDataCard("Peak Speed", "${(latestData['peakSpeed'] ?? 0.0).toStringAsFixed(1)} m/s", Icons.speed, Colors.blue),
+                      _buildDataCard("Power", "${(latestData['power'] ?? 0.0).toStringAsFixed(0)} W", Icons.bolt, Colors.orange),
                     ],
                     );
                   }),

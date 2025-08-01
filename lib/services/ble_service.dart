@@ -306,11 +306,12 @@ class BLEService {
       final dataString = String.fromCharCodes(value);
       print("Decoded data: $dataString");
       
-      // Parse ACC, GYR, MAG, PITCH, ROLL, and YAW values
+      // Parse ACC, GYR, MAG, PITCH, ROLL, YAW, SPEED, PEAK_SPEED values
       Map<String, dynamic> sensorData = {};
-      
-      // Split into sensor groups (ACC, GYR, MAG, PITCH, ROLL, YAW)
-      List<String> sensorGroups = dataString.split(' ');
+      double speed = 0.0;
+      double peakSpeed = 0.0;
+      // Accept both space and semicolon as separator
+      List<String> sensorGroups = dataString.split(RegExp(r'[ ;]'));
       for (String group in sensorGroups) {
         List<String> parts = group.split(':');
         if (parts.length == 2) {
@@ -318,8 +319,11 @@ class BLEService {
           String valueStr = parts[1];
           
           if (sensorType == 'PITCH' || sensorType == 'ROLL' || sensorType == 'YAW') {
-            // Single value for angles
             sensorData[sensorType] = double.tryParse(valueStr) ?? 0.0;
+          } else if (sensorType == 'SPEED') {
+            speed = double.tryParse(valueStr) ?? 0.0;
+          } else if (sensorType == 'PEAK_SPEED') {
+            peakSpeed = double.tryParse(valueStr) ?? 0.0;
           } else {
             // Multiple values for sensors (ACC, GYR, MAG)
             List<double> values = valueStr.split(',')
@@ -337,13 +341,6 @@ class BLEService {
           sensorData.containsKey('ROLL') &&
           sensorData.containsKey('YAW')) {
         
-        // Calculate speed from acceleration
-        double accMagnitude = sqrt(
-          pow(sensorData['ACC'][0], 2) +
-          pow(sensorData['ACC'][1], 2) +
-          pow(sensorData['ACC'][2], 2)
-        );
-        
         // Use the angles provided by ESP32
         double pitch = sensorData['PITCH'];
         double roll = sensorData['ROLL'];
@@ -355,6 +352,11 @@ class BLEService {
           pow(sensorData['GYR'][1], 2) +
           pow(sensorData['GYR'][2], 2)
         );
+        double accMagnitude = sqrt(
+          pow(sensorData['ACC'][0], 2) +
+          pow(sensorData['ACC'][1], 2) +
+          pow(sensorData['ACC'][2], 2)
+        );
         double power = accMagnitude * gyrMagnitude / 1000; // Simplified power calculation
         
         // Determine direction based on gyroscope data
@@ -365,7 +367,8 @@ class BLEService {
         }
 
         Map<String, dynamic> processedData = {
-          'speed': accMagnitude / 100, // Scale down for more reasonable values
+          'speed': speed, // Use ESP32-provided speed
+          'peakSpeed': peakSpeed,
           'angle': pitch, // Using pitch as the primary angle
           'power': power,
           'direction': direction,
@@ -375,7 +378,9 @@ class BLEService {
             'mag': sensorData['MAG'],
             'pitch': pitch,
             'roll': roll,
-            'yaw': yaw
+            'yaw': yaw,
+            'speed': speed,
+            'peakSpeed': peakSpeed,
           }
         };
 
@@ -383,7 +388,7 @@ class BLEService {
         _dataController.add(processedData);
         _debugController.add("Data processed successfully");
       } else {
-        _debugController.add("Invalid data format. Expected ACC, GYR, MAG, PITCH, ROLL, and YAW values");
+        _debugController.add("Invalid data format. Expected ACC, GYR, MAG, PITCH, ROLL, YAW, SPEED values");
       }
     } catch (e) {
       _debugController.add("Data parse error: $e");

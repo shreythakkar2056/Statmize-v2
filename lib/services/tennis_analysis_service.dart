@@ -93,9 +93,10 @@ class TennisAnalysisService {
   // Parse ESP32 data format
   SensorData? _parseESP32Data(String data) {
     try {
-      // Parse format: "ACC:x,y,z GYR:x,y,z MAG:x,y,z PITCH:p ROLL:r YAW:y"
+      // Parse format: "ACC:x,y,z GYR:x,y,z MAG:x,y,z PITCH:p ROLL:r YAW:y SPEED:s PEAK_SPEED:ps"
       Map<String, List<double>> values = {};
-      List<String> parts = data.split(' ');
+      double speed = 0.0;
+      List<String> parts = data.split(RegExp(r'[ ;]')); // Accept both space and semicolon as separator
       
       for (String part in parts) {
         if (part.contains(':')) {
@@ -105,6 +106,8 @@ class TennisAnalysisService {
           
           if (key == 'PITCH' || key == 'ROLL' || key == 'YAW') {
             values[key] = [double.parse(valueStr)];
+          } else if (key == 'SPEED') {
+            speed = double.tryParse(valueStr) ?? 0.0;
           } else {
             values[key] = valueStr.split(',').map((e) => double.parse(e)).toList();
           }
@@ -131,6 +134,7 @@ class TennisAnalysisService {
         pitch: values['PITCH']![0],
         roll: values['ROLL']![0],
         yaw: values['YAW']![0],
+        speed: speed, // <-- Set speed
       );
     } catch (e) {
       debugPrint('❌ Parse error: $e');
@@ -553,6 +557,7 @@ class SensorData {
   final double pitch;
   final double roll;
   final double yaw;
+  final double speed; // <-- Add speed field
 
   SensorData({
     required this.timestamp,
@@ -562,6 +567,7 @@ class SensorData {
     required this.pitch,
     required this.roll,
     required this.yaw,
+    required this.speed, // <-- Add speed to constructor
   });
 }
 

@@ -43,7 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
     "Cricket": {
       "duration": "45 minutes",
       "stats": [
-        StatItem(label: "Speed", value: "85"),
+        StatItem(label: "Peak Speed", value: "85"),
         StatItem(label: "Power", value: "78"),
         StatItem(label: "Accuracy", value: "92%"),
       ],
@@ -55,7 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
     "Tennis": {
       "duration": "38 minutes",
       "stats": [
-        StatItem(label: "Speed", value: "72"),
+        StatItem(label: "Peak Speed", value: "72"),
         StatItem(label: "Power", value: "65"),
         StatItem(label: "Accuracy", value: "88%"),
       ],
@@ -67,7 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
     "Badminton": {
       "duration": "52 minutes",
       "stats": [
-        StatItem(label: "Speed", value: "91"),
+        StatItem(label: "Peak Speed", value: "91"),
         StatItem(label: "Power", value: "80"),
         StatItem(label: "Accuracy", value: "95%"),
       ],
@@ -164,17 +164,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final Map<String, Map<String, dynamic>> performanceMetrics = {
     "Cricket": {
-      "Speed": {"value": 85, "change": 5},
+      "Peak Speed": {"value": 85, "change": 5},
       "Power": {"value": 78, "change": 3},
       "Accuracy": {"value": 92, "change": 2},
     },
     "Tennis": {
-      "Speed": {"value": 72, "change": 4},
+      "Peak Speed": {"value": 72, "change": 4},
       "Power": {"value": 65, "change": 2},
       "Accuracy": {"value": 88, "change": 1},
     },
     "Badminton": {
-      "Speed": {"value": 91, "change": 6},
+      "Peak Speed": {"value": 91, "change": 6},
       "Power": {"value": 80, "change": 4},
       "Accuracy": {"value": 95, "change": 3},
     },
@@ -182,17 +182,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final Map<String, Map<String, dynamic>> bestRecords = {
     "Cricket": {
-      "Max Speed": {"value": 94, "date": "2 days ago"},
+      "Max Peak Speed": {"value": 94, "date": "2 days ago"},
       "Max Power": {"value": 89, "date": "1 week ago"},
       "Best Accuracy": {"value": "98%", "date": "Yesterday"},
     },
     "Tennis": {
-      "Max Speed": {"value": 81, "date": "3 days ago"},
+      "Max Peak Speed": {"value": 81, "date": "3 days ago"},
       "Max Power": {"value": 75, "date": "5 days ago"},
       "Best Accuracy": {"value": "95%", "date": "Today"},
     },
     "Badminton": {
-      "Max Speed": {"value": 99, "date": "1 day ago"},
+      "Max Peak Speed": {"value": 99, "date": "1 day ago"},
       "Max Power": {"value": 85, "date": "2 days ago"},
       "Best Accuracy": {"value": "99%", "date": "Yesterday"},
     },
@@ -1314,9 +1314,9 @@ class PerformanceMetricsCard extends StatelessWidget {
               children: [
                 _MetricItem(
                   icon: Icons.flash_on,
-                  label: "Speed",
-                  value: metrics["Speed"]["value"].toString(),
-                  change: metrics["Speed"]["change"],
+                  label: "Peak Speed",
+                  value: metrics["Peak Speed"]["value"].toString(),
+                  change: metrics["Peak Speed"]["change"],
                   color: Colors.orange,
                   isDark: isDark,
                 ),
@@ -1422,9 +1422,9 @@ class BestRecordsCard extends StatelessWidget {
             _RecordItem(
               icon: Icons.flash_on,
               color: Colors.amber,
-              label: "Max Speed",
-              value: records["Max Speed"]["value"].toString(),
-              date: records["Max Speed"]["date"],
+              label: "Max Peak Speed",
+              value: records["Max Peak Speed"]["value"].toString(),
+              date: records["Max Peak Speed"]["date"],
             ),
             _RecordItem(
               icon: Icons.bolt,
