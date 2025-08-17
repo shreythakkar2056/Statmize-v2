@@ -5,7 +5,7 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:app/services/ble_service.dart';
-import 'package:app/services/tennis_analysis_service.dart';
+import 'package:app/services/badminton_analysis_service.dart';
 import 'package:app/services/csv_service.dart';
 
 // Add this new class for shot analysis
@@ -282,249 +282,79 @@ class _ShotAnalysisWidgetState extends State<ShotAnalysisWidget> {
 }
 
 class SessionPage extends StatefulWidget {
-  final String selectedSport;
-  
-  const SessionPage({
-    super.key,
-    required this.selectedSport,
-  });
+  final String sport;
+  const SessionPage({Key? key, required this.sport}) : super(key: key);
 
   @override
   State<SessionPage> createState() => _SessionPageState();
 }
 
 class _SessionPageState extends State<SessionPage> {
-  final BLEService bleService = BLEService();
-  final TennisAnalysisService tennisService = TennisAnalysisService();
-  final CSVService csvService = CSVService();
-  Map<String, dynamic> latestData = {
-    'speed': 0.0,
-    'angle': 0.0,
-    'power': 0.0,
-    'direction': 'Unknown',
-  };
+  final BLEService _bleService = BLEService();
+  final BadmintonAnalysisService _analysisService = BadmintonAnalysisService();
+  final CSVService _csvService = CSVService();
+
+  // Stream subscription
+  StreamSubscription? _dataSubscription;
+  StreamSubscription? _debugSubscription;
+
+  // State variables
+  List<ShotAnalysis> _shots = [];
+  Map<String, dynamic> latestData = {};
   String debugMessage = '';
   DateTime? sessionStartTime;
-  
-  // Session stats
+
+  // Statistics
   double maxSpeed = 0.0;
   double maxPower = 0.0;
   int swingCount = 0;
-
-  // Shot analysis data
-  List<ShotAnalysis> shots = [];
   Map<String, int> shotCounts = {};
   Map<String, double> avgIntensity = {};
 
-  StreamSubscription? _dataSubscription;
-  StreamSubscription? _debugSubscription;
-  StreamSubscription? _shotsSubscription;
-  StreamSubscription? _shotCountsSubscription;
-  StreamSubscription? _avgIntensitySubscription;
-  
-  DateTime? lastShotTime;
-  
   @override
   void initState() {
     super.initState();
     sessionStartTime = DateTime.now();
-    _initializeBLE();
-    if (widget.selectedSport == "Tennis") {
-      _initializeTennisAnalysis();
-    }
+    _setupServices();
   }
 
-  void _initializeTennisAnalysis() {
-    _shotsSubscription = tennisService.shotsStream.listen((newShots) {
+  void _setupServices() {
+    _analysisService.initialize();
+    _bleService.initializeBluetooth();
+
+    // Listen to motion data
+    _dataSubscription = _analysisService.motionDataStream.listen((data) {
       if (mounted) {
         setState(() {
-          shots = newShots;
-        });
-      }
-    });
-
-    _shotCountsSubscription = tennisService.shotCountsStream.listen((newCounts) {
-      if (mounted) {
-        setState(() {
-          shotCounts = newCounts;
-        });
-      }
-    });
-
-    _avgIntensitySubscription = tennisService.avgIntensityStream.listen((newIntensity) {
-      if (mounted) {
-        setState(() {
-          avgIntensity = newIntensity;
-        });
-      }
-    });
-  }
-
-  Future<void> _initializeBLE() async {
-    // Listen to data stream
-    _dataSubscription = bleService.dataStream.listen((data) async {
-      if (mounted) {
-        // 1. Update UI state
-        setState(() {
-          // Process raw sensor data
-          final acc = data['raw']['acc'] as List<double>;
-          final gyr = data['raw']['gyr'] as List<double>;
-          final mag = data['raw']['mag'] as List<double>;
-
-          // Use ESP32-provided speed
-          final peakSpeed = data['peakSpeed'] as double? ?? 0.0;
-
-          // Calculate power (simplified model)
-          final gyrMagnitude = sqrt(
-            pow(gyr[0], 2) + pow(gyr[1], 2) + pow(gyr[2], 2)
-          );
-          final accMagnitude = sqrt(
-            pow(acc[0], 2) + pow(acc[1], 2) + pow(acc[2], 2)
-          );
-          final power = accMagnitude * gyrMagnitude / 1000;
-
-          // Use ESP32-provided angles (more accurate than calculated)
-          final pitch = data['raw']['pitch'] as double;
-          final roll = data['raw']['roll'] as double;
-          final yaw = data['raw']['yaw'] as double;
-
-          // Determine direction based on gyroscope data
-          String direction = "Unknown";
-          final yawRate = gyr[2]; // Z-axis rotation
-          if (yawRate.abs() > 50) {
-            direction = yawRate > 0 ? "Clockwise" : "Counter-Clockwise";
-          }
-
-          // Update latest data
-          latestData = {
-            'peakSpeed': peakSpeed,
-            'angle': pitch, // Use ESP32 pitch angle
-            'power': power,
-            'direction': direction,
-            'raw': data['raw'],
-          };
-
-          // Update session stats
-          if (peakSpeed > maxSpeed) maxSpeed = peakSpeed;
-          if (power > maxPower) maxPower = power;
-          
-          // Only count as swing if peakSpeed is significant
-          if (peakSpeed > 1.0) {
-            if (lastShotTime == null || DateTime.now().difference(lastShotTime!) > Duration(milliseconds: 500)) {
+          latestData = data;
+          maxSpeed = max(maxSpeed, data['peakSpeed'] ?? 0.0);
+          maxPower = max(maxPower, data['power'] ?? 0.0);
+          if (data['isValidSwing'] == true) {
             swingCount++;
-              lastShotTime = DateTime.now();
-            }
           }
         });
-        
-        // 2. Analyze tennis shot if applicable - Pass ESP32 data string directly
-        if (widget.selectedSport == "Tennis") {
-          // Get the original ESP32 data string from BLE service
-          final esp32DataString = _getESP32DataString(data);
-          if (esp32DataString != null) {
-            tennisService.analyzeShot(esp32DataString);
-          }
-        }
-        
-        // 3. Save data (outside setState)
-        print('Received BLE data: ' + data.toString());
-        final acc = data['raw']['acc'] as List<double>;
-        final gyr = data['raw']['gyr'] as List<double>;
-        final mag = data['raw']['mag'] as List<double>;
-        final accMagnitude = sqrt(
-          pow(acc[0], 2) + pow(acc[1], 2) + pow(acc[2], 2)
-        );
-        final gyrMagnitude = sqrt(
-          pow(gyr[0], 2) + pow(gyr[1], 2) + pow(gyr[2], 2)
-        );
-        final magMagnitude = sqrt(
-          pow(mag[0], 2) + pow(mag[1], 2) + pow(mag[2], 2)
-        );
-        final verticalAcc = acc[1].abs();
-        final horizontalAcc = sqrt(pow(acc[0], 2) + pow(acc[2], 2));
-        final rotationSpeed = gyr[1].abs();
-        final swingSpeed = gyrMagnitude;
-        
-        // Use ESP32-provided angles (more accurate)
-        final pitch = data['raw']['pitch'] as double;
-        final roll = data['raw']['roll'] as double;
-        final yaw = data['raw']['yaw'] as double;
-        
-        await csvService.saveSensorData(
-          sport: widget.selectedSport,
-          timestamp: DateTime.now(),
-          acc: acc,
-          gyr: gyr,
-          mag: mag,
-          accMagnitude: accMagnitude,
-          gyrMagnitude: gyrMagnitude,
-          magMagnitude: magMagnitude,
-          verticalAcc: verticalAcc,
-          horizontalAcc: horizontalAcc,
-          rotationSpeed: rotationSpeed,
-          swingSpeed: swingSpeed,
-          pitch: pitch,
-          roll: roll,
-          intensity: 0.0,
-          swingType: null,
-          suggestions: null,
-          rawData: data['raw'],
-        );
       }
     });
 
     // Listen to debug messages
-    _debugSubscription = bleService.debugStream.listen((message) {
+    _debugSubscription = _bleService.debugStream.listen((message) {
       if (mounted) {
         setState(() {
           debugMessage = message;
         });
       }
     });
-
-    // If already connected, update the UI
-    if (bleService.isConnected) {
-      setState(() {
-        debugMessage = "${widget.selectedSport} session started!";
-      });
-    }
-  }
-
-  // Helper method to reconstruct ESP32 data string from processed data
-  String? _getESP32DataString(Map<String, dynamic> data) {
-    try {
-      final raw = data['raw'];
-      if (raw == null) return null;
-      
-      final acc = raw['acc'] as List<double>;
-      final gyr = raw['gyr'] as List<double>;
-      final mag = raw['mag'] as List<double>?;
-      final pitch = raw['pitch'] as double;
-      final roll = raw['roll'] as double;
-      final yaw = raw['yaw'] as double; // Use the YAW value from ESP32
-      final speed = raw['speed'] as double? ?? 0.0;
-      final peakSpeed = raw['peakSpeed'] as double? ?? 0.0;
-      // Reconstruct ESP32 format: "ACC:x,y,z GYR:x,y,z MAG:x,y,z PITCH:p ROLL:r YAW:y SPEED:s PEAK_SPEED:ps"
-      return "ACC: {acc[0].toStringAsFixed(1)},${acc[1].toStringAsFixed(1)},${acc[2].toStringAsFixed(1)} "
-             "GYR:${gyr[0].toStringAsFixed(1)},${gyr[1].toStringAsFixed(1)},${gyr[2].toStringAsFixed(1)} "
-             "MAG:${mag != null ? mag[0].toStringAsFixed(1) : '0.0'},${mag != null ? mag[1].toStringAsFixed(1) : '0.0'},${mag != null ? mag[2].toStringAsFixed(1) : '0.0'} "
-             "PITCH:${pitch.toStringAsFixed(1)} ROLL:${roll.toStringAsFixed(1)} YAW:${yaw.toStringAsFixed(1)} "
-             "SPEED:${speed.toStringAsFixed(2)} PEAK_SPEED:${peakSpeed.toStringAsFixed(2)}";
-    } catch (e) {
-      print('Error reconstructing or format of data ESP32 data string: $e');
-      return null;
-    }
   }
 
   @override
   void dispose() {
     _dataSubscription?.cancel();
     _debugSubscription?.cancel();
-    _shotsSubscription?.cancel();
-    _shotCountsSubscription?.cancel();
-    _avgIntensitySubscription?.cancel();
+    _bleService.dispose();
     super.dispose();
   }
+
+  // Rest of your existing SessionPage code...
 
   Widget _buildConnectionStatus() {
     return Card(
@@ -539,15 +369,15 @@ class _SessionPageState extends State<SessionPage> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: bleService.connectionStatusColor.withOpacity(0.1),
+                    color: _bleService.connectionStatusColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    bleService.isConnected ? Icons.bluetooth_connected : 
-                    bleService.isScanning ? Icons.bluetooth_searching :
-                    bleService.isConnecting ? Icons.bluetooth_searching :
+                    _bleService.isConnected ? Icons.bluetooth_connected :
+                    _bleService.isScanning ? Icons.bluetooth_searching :
+                    _bleService.isConnecting ? Icons.bluetooth_searching :
                     Icons.bluetooth_disabled,
-                    color: bleService.connectionStatusColor,
+                    color: _bleService.connectionStatusColor,
                     size: 30,
                   ),
                 ),
@@ -557,18 +387,18 @@ class _SessionPageState extends State<SessionPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        bleService.isConnected ? "Connected & Tracking" : 
-                        bleService.isScanning ? "Scanning for Tracker" :
-                        bleService.isConnecting ? "Connecting..." :
+                        _bleService.isConnected ? "Connected & Tracking" :
+                        _bleService.isScanning ? "Scanning for Tracker" :
+                        _bleService.isConnecting ? "Connecting..." :
                         "Not Connected",
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: bleService.connectionStatusColor,
+                          color: _bleService.connectionStatusColor,
                         ),
                       ),
                       Text(
-                        widget.selectedSport,
+                        widget.sport,
                         style: TextStyle(
                           fontSize: 14,
                           color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
@@ -579,11 +409,11 @@ class _SessionPageState extends State<SessionPage> {
                 ),
               ],
             ),
-            if (bleService.isScanning || bleService.isConnecting) ...[
+            if (_bleService.isScanning || _bleService.isConnecting) ...[
               const SizedBox(height: 16),
               LinearProgressIndicator(
-                backgroundColor: bleService.connectionStatusColor.withOpacity(0.2),
-                valueColor: AlwaysStoppedAnimation<Color>(bleService.connectionStatusColor),
+                backgroundColor: _bleService.connectionStatusColor.withOpacity(0.2),
+                valueColor: AlwaysStoppedAnimation<Color>(_bleService.connectionStatusColor),
               ),
             ],
             if (debugMessage.isNotEmpty) ...[
@@ -698,7 +528,7 @@ class _SessionPageState extends State<SessionPage> {
   }
 
   Widget _buildShotAnalysisSection() {
-    if (widget.selectedSport != "Tennis" || shots.isEmpty) {
+    if (widget.sport != "Tennis" || _shots.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -717,7 +547,7 @@ class _SessionPageState extends State<SessionPage> {
         Card(
           color: Theme.of(context).cardColor,
           child: ShotAnalysisWidget(
-            shots: shots,
+            shots: _shots,
             shotCounts: shotCounts,
             avgIntensity: avgIntensity,
           ),
@@ -779,7 +609,7 @@ class _SessionPageState extends State<SessionPage> {
         backgroundColor: Colors.transparent,
         centerTitle: true,
         title: Text(
-          "${widget.selectedSport} Session",
+          "${widget.sport} Session",
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -796,14 +626,14 @@ class _SessionPageState extends State<SessionPage> {
         actions: [
           IconButton(
             icon: Icon(
-              bleService.isScanning ? Icons.stop : Icons.refresh,
+              _bleService.isScanning ? Icons.stop : Icons.refresh,
               color: Theme.of(context).colorScheme.onSurface,
             ),
             onPressed: () {
-              if (bleService.isScanning) {
-                bleService.disconnect();
+              if (_bleService.isScanning) {
+                _bleService.disconnect();
               } else {
-                bleService.startScan();
+                _bleService.startScan();
               }
             },
           ),

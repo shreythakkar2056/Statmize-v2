@@ -105,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
       "percentLabel": "93%",
       "goalLabel": "Goal Achievement",
       "gradientColors": [
-        Colors.purple.shade300,
+        Colors.purple,
         Colors.pink.shade100,
       ],
     },
@@ -361,7 +361,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => SessionPage(selectedSport: sport),
+              builder: (context) => SessionPage(sport: sport),  // Fixed parameter name to match SessionPage
             ),
           );
           ScaffoldMessenger.of(context).showSnackBar(

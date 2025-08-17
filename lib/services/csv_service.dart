@@ -29,86 +29,37 @@ class CSVService {
     required DateTime timestamp,
     required List<double> acc,
     required List<double> gyr,
-    required List<double> mag,
-    required double accMagnitude,
-    required double gyrMagnitude,
-    required double magMagnitude,
-    required double verticalAcc,
-    required double horizontalAcc,
-    required double rotationSpeed,
-    required double swingSpeed,
-    required double pitch,
-    required double roll,
-    required double intensity,
-    List<String>? suggestions,
-    String? swingType,
-    Map<String, dynamic>? rawData,
+    required double peakSpeed,
   }) async {
     try {
-      print('Saving data for $sport at $timestamp: acc=$acc, gyr=$gyr, mag=$mag');
+      print('Saving data for $sport at $timestamp: acc=$acc, gyr=$gyr, peakSpeed=$peakSpeed');
       final file = await _getLocalFile(sport);
       final exists = await file.exists();
       
       List<List<dynamic>> rows = [];
-      
       if (!exists) {
-        // Add header row if file doesn't exist
+        // Create header if file doesn't exist
         rows.add([
           'Timestamp',
-          'Acc X', 'Acc Y', 'Acc Z',
-          'Gyr X', 'Gyr Y', 'Gyr Z',
-          'Mag X', 'Mag Y', 'Mag Z',
-          'Acceleration Magnitude',
-          'Gyroscope Magnitude',
-          'Magnetic Magnitude',
-          'Vertical Acceleration',
-          'Horizontal Acceleration',
-          'Rotation Speed',
-          'Swing Speed',
-          'Pitch',
-          'Roll',
-          'Intensity',
-          'Swing Type',
-          'Suggestions',
-          'Raw Data',
+          'AccX', 'AccY', 'AccZ',
+          'GyroX', 'GyroY', 'GyroZ',
+          'PeakSpeed'
         ]);
       }
-      
+
       // Add data row
       rows.add([
         DateFormat('yyyy-MM-dd HH:mm:ss.SSS').format(timestamp),
-        acc[0].toStringAsFixed(3), acc[1].toStringAsFixed(3), acc[2].toStringAsFixed(3),
-        gyr[0].toStringAsFixed(3), gyr[1].toStringAsFixed(3), gyr[2].toStringAsFixed(3),
-        mag[0].toStringAsFixed(3), mag[1].toStringAsFixed(3), mag[2].toStringAsFixed(3),
-        accMagnitude.toStringAsFixed(3),
-        gyrMagnitude.toStringAsFixed(3),
-        magMagnitude.toStringAsFixed(3),
-        verticalAcc.toStringAsFixed(3),
-        horizontalAcc.toStringAsFixed(3),
-        rotationSpeed.toStringAsFixed(3),
-        swingSpeed.toStringAsFixed(3),
-        pitch.toStringAsFixed(3),
-        roll.toStringAsFixed(3),
-        intensity.toStringAsFixed(3),
-        swingType ?? '',
-        suggestions?.join('; ') ?? '',
-        rawData != null ? rawData.toString() : '',
+        acc[0], acc[1], acc[2],
+        gyr[0], gyr[1], gyr[2],
+        peakSpeed
       ]);
-      
+
       String csv = const ListToCsvConverter().convert(rows);
-      
-      if (exists) {
-        // Read existing content and append properly
-        String existingContent = await file.readAsString();
-        // Ensure the file ends with a newline
-        if (!existingContent.endsWith('\n')) {
-          existingContent += '\n';
-        }
-        // Append new data
-        await file.writeAsString(existingContent + csv);
+      if (!exists) {
+        await file.writeAsString(csv);
       } else {
-        // Write new file with proper ending
-        await file.writeAsString(csv + '\n');
+        await file.writeAsString(csv + '\n', mode: FileMode.append);
       }
       
       print('✅ CSV data saved successfully to: ${file.path}');
@@ -136,19 +87,7 @@ class CSVService {
           'timestamp': row[0],
           'acc': [double.parse(row[1]), double.parse(row[2]), double.parse(row[3])],
           'gyr': [double.parse(row[4]), double.parse(row[5]), double.parse(row[6])],
-          'mag': [double.parse(row[7]), double.parse(row[8]), double.parse(row[9])],
-          'accMagnitude': double.parse(row[10]),
-          'gyrMagnitude': double.parse(row[11]),
-          'magMagnitude': double.parse(row[12]),
-          'verticalAcc': double.parse(row[13]),
-          'horizontalAcc': double.parse(row[14]),
-          'rotationSpeed': double.parse(row[15]),
-          'swingSpeed': double.parse(row[16]),
-          'pitch': double.parse(row[17]),
-          'roll': double.parse(row[18]),
-          'intensity': double.parse(row[19]),
-          'swingType': row[20],
-          'suggestions': row[21].toString().split('; ').where((s) => s.isNotEmpty).toList(),
+          'peakSpeed': double.parse(row[7]),
         };
       }).toList();
     } catch (e) {
@@ -306,4 +245,4 @@ class CSVService {
       return false;
     }
   }
-} 
+}

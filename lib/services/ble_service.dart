@@ -4,6 +4,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart' as perm;
 import 'package:flutter/material.dart';
 import 'package:app/constants/ble_constants.dart';
+import 'package:app/services/csv_service.dart';  // Added missing import
 import 'dart:math';
 import 'package:location/location.dart' as loc;
 
@@ -45,6 +46,11 @@ class BLEService {
   // Stream for discovered devices
   final StreamController<List<ScanResult>> _devicesController = StreamController.broadcast();
   Stream<List<ScanResult>> get devicesStream => _devicesController.stream;
+
+  // Motion data handling
+  final CSVService _csvService = CSVService();
+  StreamController<Map<String, dynamic>> _motionDataController = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get motionDataStream => _motionDataController.stream;
 
   // Initialize Bluetooth
   Future<void> initializeBluetooth() async {
@@ -303,97 +309,89 @@ class BLEService {
   // Handle received data
   void _handleReceivedData(List<int> value) {
     try {
-      final dataString = String.fromCharCodes(value);
+      final dataString = String.fromCharCodes(value).trim();
       print("Decoded data: $dataString");
       
-      // Parse ACC, GYR, MAG, PITCH, ROLL, YAW, SPEED, PEAK_SPEED values
-      Map<String, dynamic> sensorData = {};
-      double speed = 0.0;
-      double peakSpeed = 0.0;
-      // Accept both space and semicolon as separator
-      List<String> sensorGroups = dataString.split(RegExp(r'[ ;]'));
-      for (String group in sensorGroups) {
-        List<String> parts = group.split(':');
-        if (parts.length == 2) {
-          String sensorType = parts[0];
-          String valueStr = parts[1];
-          
-          if (sensorType == 'PITCH' || sensorType == 'ROLL' || sensorType == 'YAW') {
-            sensorData[sensorType] = double.tryParse(valueStr) ?? 0.0;
-          } else if (sensorType == 'SPEED') {
-            speed = double.tryParse(valueStr) ?? 0.0;
-          } else if (sensorType == 'PEAK_SPEED') {
-            peakSpeed = double.tryParse(valueStr) ?? 0.0;
-          } else {
-            // Multiple values for sensors (ACC, GYR, MAG)
-            List<double> values = valueStr.split(',')
-                .map((s) => double.tryParse(s) ?? 0.0)
-                .toList();
-            sensorData[sensorType] = values;
+      // Parse the ESP32's new data format: "acc:X,Y,Z,gyr:X,Y,Z,peakSpeed:value"
+      Map<String, dynamic> motionData = {
+        'timestamp': DateTime.now(),
+        'acc': [0.0, 0.0, 0.0],
+        'gyr': [0.0, 0.0, 0.0],
+        'peakSpeed': 0.0
+      };
+
+      // Split data by parts
+      var parts = dataString.split(',');
+      String currentKey = '';
+      List<double> currentValues = [];
+
+      for (var part in parts) {
+        if (part.contains(':')) {
+          // If we have a key:value pair
+          if (currentKey.isNotEmpty && currentValues.isNotEmpty) {
+            // Store previous values if we have them
+            motionData[currentKey] = currentValues;
+            currentValues = [];
+          }
+
+          var keyValue = part.split(':');
+          currentKey = keyValue[0];
+          if (currentKey == 'acc' || currentKey == 'gyr') {
+            // Start a new vector
+            currentValues = [double.tryParse(keyValue[1]) ?? 0.0];
+          } else if (currentKey == 'peakSpeed') {
+            // Handle scalar value
+            motionData[currentKey] = double.tryParse(keyValue[1]) ?? 0.0;
+          }
+        } else {
+          // Continue vector
+          if (currentKey == 'acc' || currentKey == 'gyr') {
+            currentValues.add(double.tryParse(part) ?? 0.0);
           }
         }
       }
 
-      if (sensorData.containsKey('ACC') && 
-          sensorData.containsKey('GYR') && 
-          sensorData.containsKey('MAG') &&
-          sensorData.containsKey('PITCH') &&
-          sensorData.containsKey('ROLL') &&
-          sensorData.containsKey('YAW')) {
-        
-        // Use the angles provided by ESP32
-        double pitch = sensorData['PITCH'];
-        double roll = sensorData['ROLL'];
-        double yaw = sensorData['YAW'];
-        
-        // Calculate power (simplified model based on acceleration and angular velocity)
-        double gyrMagnitude = sqrt(
-          pow(sensorData['GYR'][0], 2) +
-          pow(sensorData['GYR'][1], 2) +
-          pow(sensorData['GYR'][2], 2)
-        );
-        double accMagnitude = sqrt(
-          pow(sensorData['ACC'][0], 2) +
-          pow(sensorData['ACC'][1], 2) +
-          pow(sensorData['ACC'][2], 2)
-        );
-        double power = accMagnitude * gyrMagnitude / 1000; // Simplified power calculation
-        
-        // Determine direction based on gyroscope data
-        String direction = "Unknown";
-        double yawRate = sensorData['GYR'][2]; // Z-axis rotation
-        if (yawRate.abs() > 50) {
-          direction = yawRate > 0 ? "Clockwise" : "Counter-Clockwise";
-        }
-
-        Map<String, dynamic> processedData = {
-          'speed': speed, // Use ESP32-provided speed
-          'peakSpeed': peakSpeed,
-          'angle': pitch, // Using pitch as the primary angle
-          'power': power,
-          'direction': direction,
-          'raw': {
-            'acc': sensorData['ACC'],
-            'gyr': sensorData['GYR'],
-            'mag': sensorData['MAG'],
-            'pitch': pitch,
-            'roll': roll,
-            'yaw': yaw,
-            'speed': speed,
-            'peakSpeed': peakSpeed,
-          }
-        };
-
-        lastDataReceived = DateTime.now();
-        _dataController.add(processedData);
-        _debugController.add("Data processed successfully");
-      } else {
-        _debugController.add("Invalid data format. Expected ACC, GYR, MAG, PITCH, ROLL, YAW, SPEED values");
+      // Store final vector if pending
+      if (currentKey.isNotEmpty && currentValues.isNotEmpty &&
+          (currentKey == 'acc' || currentKey == 'gyr')) {
+        motionData[currentKey] = currentValues;
       }
-    } catch (e) {
+
+      // Forward the data
+      lastDataReceived = DateTime.now();
+      _dataController.add(motionData);
+      _motionDataController.add(motionData);
+
+      // Save to CSV
+      _csvService.saveSensorData(
+        sport: 'badminton',
+        timestamp: motionData['timestamp'],
+        acc: motionData['acc'],
+        gyr: motionData['gyr'],
+        peakSpeed: motionData['peakSpeed'],
+      );
+
+      _debugController.add("Data processed successfully");
+    } catch (e, stackTrace) {
       _debugController.add("Data parse error: $e");
       print("Data parsing error: $e");
+      print("Stack trace: $stackTrace");
+      print("Raw data: ${String.fromCharCodes(value)}");
     }
+  }
+
+  Future<void> startNotifications() async {
+    if (_characteristic != null) {
+      await _characteristic!.setNotifyValue(true);
+      _notificationStream?.cancel();
+      _notificationStream = _characteristic!.lastValueStream.listen(_handleReceivedData);
+    }
+  }
+
+  Future<void> stopNotifications() async {
+    await _characteristic?.setNotifyValue(false);
+    await _notificationStream?.cancel();
+    _notificationStream = null;
   }
 
   // Disconnect from device
