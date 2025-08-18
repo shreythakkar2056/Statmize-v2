@@ -106,6 +106,7 @@ class BadmintonAnalysisService {
           acc: lastData['acc'],
           gyr: lastData['gyr'],
           peakSpeed: peakSpeed,
+          shotCount: lastData['shotCount'] ?? 0,  // Add shotCount parameter
         );
       }
     } catch (e) {

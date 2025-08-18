@@ -30,9 +30,10 @@ class CSVService {
     required List<double> acc,
     required List<double> gyr,
     required double peakSpeed,
+    required int shotCount,
   }) async {
     try {
-      print('Saving data for $sport at $timestamp: acc=$acc, gyr=$gyr, peakSpeed=$peakSpeed');
+      print('Saving data for $sport at $timestamp: acc=$acc, gyr=$gyr, peakSpeed=$peakSpeed, shotCount=$shotCount');
       final file = await _getLocalFile(sport);
       final exists = await file.exists();
       
@@ -43,7 +44,7 @@ class CSVService {
           'Timestamp',
           'AccX', 'AccY', 'AccZ',
           'GyroX', 'GyroY', 'GyroZ',
-          'PeakSpeed'
+          'PeakSpeed', 'ShotCount'
         ]);
       }
 
@@ -52,7 +53,7 @@ class CSVService {
         DateFormat('yyyy-MM-dd HH:mm:ss.SSS').format(timestamp),
         acc[0], acc[1], acc[2],
         gyr[0], gyr[1], gyr[2],
-        peakSpeed
+        peakSpeed, shotCount
       ]);
 
       String csv = const ListToCsvConverter().convert(rows);
@@ -88,6 +89,7 @@ class CSVService {
           'acc': [double.parse(row[1]), double.parse(row[2]), double.parse(row[3])],
           'gyr': [double.parse(row[4]), double.parse(row[5]), double.parse(row[6])],
           'peakSpeed': double.parse(row[7]),
+          'shotCount': int.parse(row[8]),
         };
       }).toList();
     } catch (e) {

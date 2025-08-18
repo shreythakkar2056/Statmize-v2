@@ -583,9 +583,9 @@ class _SessionPageState extends State<SessionPage> {
           crossAxisSpacing: 8,
           childAspectRatio: aspectRatio,
           children: [
-            _buildDataCard("Max Peak Speed", "${maxSpeed.toStringAsFixed(1)} m/s", Icons.flash_on, Colors.red),
+            _buildDataCard("Max Speed", "${maxSpeed.toStringAsFixed(1)} m/s", Icons.flash_on, Colors.red),
+            _buildDataCard("Shot Count", "${(latestData['shotCount'] ?? 0).toString()}", Icons.sports_tennis, Colors.purple),
             _buildDataCard("Max Power", "${maxPower.toStringAsFixed(0)} W", Icons.fitness_center, Colors.deepOrange),
-            _buildDataCard("Swings", "$swingCount", Icons.sports_tennis, Colors.teal),
             _buildDataCard("Duration", _getSessionDuration(), Icons.timer, Colors.blue),
           ],
         ),
@@ -676,7 +676,7 @@ class _SessionPageState extends State<SessionPage> {
                     crossAxisSpacing: 8,
                       childAspectRatio: aspectRatio,
                     children: [
-                      _buildDataCard("Peak Speed", "${(latestData['peakSpeed'] ?? 0.0).toStringAsFixed(1)} m/s", Icons.speed, Colors.blue),
+                      _buildDataCard("Wrist Speed", "${(latestData['peakSpeed'] ?? 0.0).toStringAsFixed(1)} m/s", Icons.speed, Colors.blue),
                       _buildDataCard("Power", "${(latestData['power'] ?? 0.0).toStringAsFixed(0)} W", Icons.bolt, Colors.orange),
                     ],
                     );

@@ -312,12 +312,13 @@ class BLEService {
       final dataString = String.fromCharCodes(value).trim();
       print("Decoded data: $dataString");
       
-      // Parse the ESP32's new data format: "acc:X,Y,Z,gyr:X,Y,Z,peakSpeed:value"
+      // Parse the ESP32's data format: "acc:X,Y,Z,gyr:X,Y,Z,peakSpeed:value,shotCount:value"
       Map<String, dynamic> motionData = {
         'timestamp': DateTime.now(),
         'acc': [0.0, 0.0, 0.0],
         'gyr': [0.0, 0.0, 0.0],
-        'peakSpeed': 0.0
+        'peakSpeed': 0.0,
+        'shotCount': 0
       };
 
       // Split data by parts
@@ -339,8 +340,8 @@ class BLEService {
           if (currentKey == 'acc' || currentKey == 'gyr') {
             // Start a new vector
             currentValues = [double.tryParse(keyValue[1]) ?? 0.0];
-          } else if (currentKey == 'peakSpeed') {
-            // Handle scalar value
+          } else if (currentKey == 'peakSpeed' || currentKey == 'shotCount') {
+            // Handle scalar values
             motionData[currentKey] = double.tryParse(keyValue[1]) ?? 0.0;
           }
         } else {
@@ -369,6 +370,7 @@ class BLEService {
         acc: motionData['acc'],
         gyr: motionData['gyr'],
         peakSpeed: motionData['peakSpeed'],
+        shotCount: motionData['shotCount'].toInt(),
       );
 
       _debugController.add("Data processed successfully");
