@@ -131,7 +131,8 @@ class _DeveloperPageState extends State<DeveloperPage> {
   Future<File?> _getSelectedFile() async {
     if (selectedDate == null) return null;
     final dir = await getApplicationDocumentsDirectory();
-    final filePath = '${dir.path}/sensor_data_${selectedSport}_$selectedDate.csv';
+    final sportKey = selectedSport.toLowerCase();
+    final filePath = '${dir.path}/sensor_data_${sportKey}_$selectedDate.csv';
     final file = File(filePath);
     if (await file.exists()) {
       return file;
@@ -154,6 +155,36 @@ class _DeveloperPageState extends State<DeveloperPage> {
       setState(() {
         fileContent = null;
       });
+    }
+  }
+
+  Future<void> _generateSampleRow() async {
+    // Generate a single row to help test CSV without hardware
+    try {
+      await csvService.saveSensorData(
+        sport: selectedSport,
+        timestamp: DateTime.now(),
+        acc: [0.1, 0.2, 0.3],
+        gyr: [1.1, 1.2, 1.3],
+        peakSpeed: 9.5,
+        shotCount: 1,
+        power: 3.1,
+      );
+      await _loadAvailableDates();
+      if (selectedDate != null) {
+        await _loadFileContent();
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✅ Sample CSV row generated.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Failed to generate sample row: $e')),
+        );
+      }
     }
   }
 
@@ -318,6 +349,12 @@ class _DeveloperPageState extends State<DeveloperPage> {
                     ElevatedButton(
                       onPressed: _loadFileContent,
                       child: const Text("View Data"),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: _generateSampleRow,
+                      icon: const Icon(Icons.add),
+                      label: const Text("Generate sample"),
                     ),
                   ],
                 ),

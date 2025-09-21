@@ -5,7 +5,6 @@ import 'package:permission_handler/permission_handler.dart' as perm;
 import 'package:flutter/material.dart';
 import 'package:app/constants/ble_constants.dart';
 import 'package:app/services/csv_service.dart';  // Added missing import
-import 'dart:math';
 import 'package:location/location.dart' as loc;
 
 class BLEService {
@@ -164,17 +163,17 @@ class BLEService {
       _scanResultsSubscription = FlutterBluePlus.scanResults.listen((results) {
         discoveredDevices = results;
         _devicesController.add(results); // Notify listeners of new devices
-        print("Nearby devices updated: ${results.length}");
+        debugPrint("Nearby devices updated: ${results.length}");
 
         // Debug logging for iOS
         if (Platform.isIOS) {
-          print("=== iOS BLE Scan Results ===");
+          debugPrint("=== iOS BLE Scan Results ===");
           for (var result in results) {
-            print("Device: ${result.device.platformName}");
-            print("Adv Name: ${result.advertisementData.advName}");
-            print("Device ID: ${result.device.remoteId}");
-            print("RSSI: ${result.rssi}");
-            print("---");
+            debugPrint("Device: ${result.device.platformName}");
+            debugPrint("Adv Name: ${result.advertisementData.advName}");
+            debugPrint("Device ID: ${result.device.remoteId}");
+            debugPrint("RSSI: ${result.rssi}");
+            debugPrint("---");
           }
         }
 
@@ -214,7 +213,7 @@ class BLEService {
     } catch (e) {
       _debugController.add("Scan error: $e");
       isScanning = false;
-      print("iOS Scan Error: $e");
+      debugPrint("iOS Scan Error: $e");
     }
   }
 
@@ -232,7 +231,7 @@ class BLEService {
       );
 
       _stateSubscription = device.connectionState.listen((state) async {
-        print("Connection state changed: $state");
+        debugPrint("Connection state changed: $state");
         isConnected = state == BluetoothConnectionState.connected;
 
         if (state == BluetoothConnectionState.connected) {
@@ -247,7 +246,7 @@ class BLEService {
     } catch (e) {
       _debugController.add("Connection error: $e");
       isConnecting = false;
-      print("iOS Connection Error: $e");
+      debugPrint("iOS Connection Error: $e");
     }
   }
 
@@ -256,11 +255,11 @@ class BLEService {
     try {
       List<BluetoothService> services = await device.discoverServices();
 
-      print("=== Discovered Services ===");
+      debugPrint("=== Discovered Services ===");
       for (var service in services) {
-        print("Service UUID: ${service.uuid}");
+        debugPrint("Service UUID: ${service.uuid}");
         for (var char in service.characteristics) {
-          print("  Characteristic UUID: ${char.uuid}");
+          debugPrint("  Characteristic UUID: ${char.uuid}");
         }
       }
 
@@ -279,11 +278,11 @@ class BLEService {
 
               _notificationStream = char.lastValueStream.listen(
                 (value) {
-                  print("Received data: $value");
+                  debugPrint("Received data: $value");
                   _handleReceivedData(value);
                 },
                 onError: (error) {
-                  print("Notification error: $error");
+                  debugPrint("Notification error: $error");
                   _debugController.add("Notification error: $error");
                 },
               );
@@ -302,7 +301,7 @@ class BLEService {
     } catch (e) {
       _debugController.add("Service discovery error: $e");
       isConnecting = false;
-      print("iOS Service Discovery Error: $e");
+      debugPrint("iOS Service Discovery Error: $e");
     }
   }
 
@@ -310,15 +309,16 @@ class BLEService {
   void _handleReceivedData(List<int> value) {
     try {
       final dataString = String.fromCharCodes(value).trim();
-      print("Decoded data: $dataString");
+      debugPrint("Decoded data: $dataString");
       
-      // Parse the ESP32's data format: "acc:X,Y,Z,gyr:X,Y,Z,peakSpeed:value,shotCount:value"
+      // Parse the ESP32's data format: "acc:X,Y,Z,gyr:X,Y,Z,peakSpeed:value,shotCount:value,Power:value"
       Map<String, dynamic> motionData = {
         'timestamp': DateTime.now(),
         'acc': [0.0, 0.0, 0.0],
         'gyr': [0.0, 0.0, 0.0],
         'peakSpeed': 0.0,
-        'shotCount': 0
+        'shotCount': 0,
+        'power': 0.0,
       };
 
       // Split data by parts
@@ -336,18 +336,43 @@ class BLEService {
           }
 
           var keyValue = part.split(':');
-          currentKey = keyValue[0];
-          if (currentKey == 'acc' || currentKey == 'gyr') {
+          var rawKey = keyValue[0].trim();
+          var valueStr = keyValue.length > 1 ? keyValue[1].trim() : '';
+
+          // Normalize key names to handle variants from firmware
+          var keyLower = rawKey.toLowerCase();
+          if (keyLower == 'acc' || keyLower == 'gyr') {
+            currentKey = keyLower; // keep lowercase for vectors
             // Start a new vector
-            currentValues = [double.tryParse(keyValue[1]) ?? 0.0];
-          } else if (currentKey == 'peakSpeed' || currentKey == 'shotCount') {
+            currentValues = [double.tryParse(valueStr) ?? 0.0];
+          } else {
+            // Map common variants to canonical keys used in the app
+            String canonicalKey;
+            if (keyLower == 'peakspeed' || keyLower == 'peak_speed' || keyLower == 'speed') {
+              canonicalKey = 'peakSpeed';
+            } else if (keyLower == 'shotcount' || keyLower == 'shots' || keyLower == 'shot' || keyLower == 'count') {
+              canonicalKey = 'shotCount';
+            } else if (keyLower == 'power' || rawKey == 'Power') {
+              canonicalKey = 'power';
+            } else {
+              // Unknown scalar key; keep as-is (trimmed)
+              canonicalKey = rawKey;
+            }
+
+            currentKey = canonicalKey;
             // Handle scalar values
-            motionData[currentKey] = double.tryParse(keyValue[1]) ?? 0.0;
+            if (currentKey == 'shotCount') {
+              // Some firmwares may send shot count as double; coerce to int
+              final shotVal = int.tryParse(valueStr) ?? double.tryParse(valueStr)?.toInt() ?? 0;
+              motionData['shotCount'] = shotVal;
+            } else if (currentKey == 'peakSpeed' || currentKey == 'power') {
+              motionData[currentKey] = double.tryParse(valueStr) ?? 0.0;
+            }
           }
         } else {
           // Continue vector
           if (currentKey == 'acc' || currentKey == 'gyr') {
-            currentValues.add(double.tryParse(part) ?? 0.0);
+            currentValues.add(double.tryParse(part.trim()) ?? 0.0);
           }
         }
       }
@@ -371,14 +396,16 @@ class BLEService {
         gyr: motionData['gyr'],
         peakSpeed: motionData['peakSpeed'],
         shotCount: motionData['shotCount'].toInt(),
+        power: motionData['power'],
       );
 
-      _debugController.add("Data processed successfully");
+      _debugController.add(
+          "Data processed successfully | shotCount=${motionData['shotCount']} power=${(motionData['power'] as double).toStringAsFixed(2)} speed=${(motionData['peakSpeed'] as double).toStringAsFixed(2)}");
     } catch (e, stackTrace) {
       _debugController.add("Data parse error: $e");
-      print("Data parsing error: $e");
-      print("Stack trace: $stackTrace");
-      print("Raw data: ${String.fromCharCodes(value)}");
+      debugPrint("Data parsing error: $e");
+      debugPrint("Stack trace: $stackTrace");
+      debugPrint("Raw data: ${String.fromCharCodes(value)}");
     }
   }
 

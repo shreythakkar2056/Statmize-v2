@@ -16,7 +16,7 @@ class FloatingNavBar extends StatelessWidget {
     final Color selectedBg = isDark ? Colors.white : const Color(0xFF0A0E25);
     final Color selectedIcon = isDark ? const Color(0xFF0A0E25) : Colors.white;
     final Color unselectedBg = isDark
-        ? Colors.white.withOpacity(0.07)
+        ? Colors.white.withValues(alpha: 0.07)
         : const Color(0xFFF2F4F7); // light grey for unselected
     final Color unselectedIcon = isDark
         ? Colors.white // white for dark mode
@@ -26,12 +26,12 @@ class FloatingNavBar extends StatelessWidget {
         : Colors.white; // light mode: white
     final BoxShadow navBarShadow = isDark
         ? BoxShadow(
-            color: Colors.white.withOpacity(0.09),
+            color: Colors.white.withValues(alpha: 0.09),
             blurRadius: 18,
             offset: const Offset(0, 4),
           )
         : BoxShadow(
-            color: Colors.black.withOpacity(0.5),
+            color: Colors.black.withValues(alpha: 0.5),
             blurRadius: 18,
             offset: const Offset(0, 4),
           );

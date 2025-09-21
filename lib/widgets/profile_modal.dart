@@ -49,8 +49,8 @@ class ProfileModal extends StatelessWidget {
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: isDestructive
-              ? Colors.red.withOpacity(0.1)
-              : Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              ? Colors.red.withValues(alpha: 0.1)
+              : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
           child: Icon(
             icon,
             color: isDestructive
@@ -70,14 +70,14 @@ class ProfileModal extends StatelessWidget {
         subtitle: Text(
           subtitle,
           style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
           ),
         ),
         trailing: trailing ??
             Icon(
               Icons.arrow_forward_ios,
               size: 16,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
             ),
         onTap: onTap,
       ),
@@ -103,7 +103,7 @@ class ProfileModal extends StatelessWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -115,7 +115,7 @@ class ProfileModal extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 50,
-                  backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                   child: Icon(
                     Icons.person,
                     size: 50,
@@ -135,7 +135,7 @@ class ProfileModal extends StatelessWidget {
                   "Statmize User",
                   style: TextStyle(
                     fontSize: 16,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
               ],
@@ -310,7 +310,7 @@ class ProfileModal extends StatelessWidget {
           children: [
             ListTile(
               leading: CircleAvatar(
-                backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                 child: Icon(
                   Icons.palette,
                   color: Theme.of(context).colorScheme.primary,

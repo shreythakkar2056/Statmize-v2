@@ -1,7 +1,4 @@
-// session_page.dart
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:app/services/ble_service.dart';
@@ -88,7 +85,7 @@ class _ShotAnalysisWidgetState extends State<ShotAnalysisWidget> {
             Divider(
               height: 20,
               thickness: 1,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
             ),
             const SizedBox(height: 8),
             
@@ -100,7 +97,7 @@ class _ShotAnalysisWidgetState extends State<ShotAnalysisWidget> {
                   child: Text(
                     "No shots analyzed yet",
                     style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                       fontSize: 16,
                     ),
                   ),
@@ -185,7 +182,7 @@ class _ShotAnalysisWidgetState extends State<ShotAnalysisWidget> {
                                         "${shot.suggestions.length} tips",
                                         style: TextStyle(
                                           fontSize: 12,
-                                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                                         ),
                                       ),
                                     ],
@@ -195,7 +192,7 @@ class _ShotAnalysisWidgetState extends State<ShotAnalysisWidget> {
                                 // Expand/Collapse Icon
                                 Icon(
                                   isExpanded ? Icons.expand_less : Icons.expand_more,
-                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                                 ),
                               ],
                             ),
@@ -257,7 +254,7 @@ class _ShotAnalysisWidgetState extends State<ShotAnalysisWidget> {
                                             suggestion,
                                             style: TextStyle(
                                               fontSize: 14,
-                                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
                                               height: 1.4,
                                             ),
                                           ),
@@ -308,6 +305,7 @@ class _SessionPageState extends State<SessionPage> {
   double maxSpeed = 0.0;
   double maxPower = 0.0;
   int swingCount = 0;
+  int totalShotCount = 0;  // Track accumulated shot count
   Map<String, int> shotCounts = {};
   Map<String, double> avgIntensity = {};
 
@@ -329,6 +327,13 @@ class _SessionPageState extends State<SessionPage> {
           latestData = data;
           maxSpeed = max(maxSpeed, data['peakSpeed'] ?? 0.0);
           maxPower = max(maxPower, data['power'] ?? 0.0);
+          
+          // Accumulate shot count from ESP32 data
+          int newShotCount = data['shotCount'] ?? 0;
+          if (newShotCount > totalShotCount) {
+            totalShotCount = newShotCount;
+          }
+          
           if (data['isValidSwing'] == true) {
             swingCount++;
           }
@@ -369,7 +374,7 @@ class _SessionPageState extends State<SessionPage> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: _bleService.connectionStatusColor.withOpacity(0.1),
+                    color: _bleService.connectionStatusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -401,7 +406,7 @@ class _SessionPageState extends State<SessionPage> {
                         widget.sport,
                         style: TextStyle(
                           fontSize: 14,
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                         ),
                       ),
                     ],
@@ -412,7 +417,7 @@ class _SessionPageState extends State<SessionPage> {
             if (_bleService.isScanning || _bleService.isConnecting) ...[
               const SizedBox(height: 16),
               LinearProgressIndicator(
-                backgroundColor: _bleService.connectionStatusColor.withOpacity(0.2),
+                backgroundColor: _bleService.connectionStatusColor.withValues(alpha: 0.2),
                 valueColor: AlwaysStoppedAnimation<Color>(_bleService.connectionStatusColor),
               ),
             ],
@@ -422,7 +427,7 @@ class _SessionPageState extends State<SessionPage> {
                 debugMessage,
                 style: TextStyle(
                   fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -445,7 +450,7 @@ class _SessionPageState extends State<SessionPage> {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, color: color, size: 20),
@@ -465,7 +470,7 @@ class _SessionPageState extends State<SessionPage> {
               title,
               style: TextStyle(
                 fontSize: 11,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
               ),
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
@@ -496,7 +501,7 @@ class _SessionPageState extends State<SessionPage> {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, color: color, size: 20),
@@ -516,7 +521,7 @@ class _SessionPageState extends State<SessionPage> {
               "Direction",
               style: TextStyle(
                 fontSize: 11,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
               ),
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
@@ -584,8 +589,8 @@ class _SessionPageState extends State<SessionPage> {
           childAspectRatio: aspectRatio,
           children: [
             _buildDataCard("Max Speed", "${maxSpeed.toStringAsFixed(1)} m/s", Icons.flash_on, Colors.red),
-            _buildDataCard("Shot Count", "${(latestData['shotCount'] ?? 0).toString()}", Icons.sports_tennis, Colors.purple),
-            _buildDataCard("Max Power", "${maxPower.toStringAsFixed(0)} W", Icons.fitness_center, Colors.deepOrange),
+            _buildDataCard("Shot Count", "$totalShotCount", Icons.sports_tennis, Colors.purple),
+            _buildDataCard("Max Power", "${maxPower.toStringAsFixed(1)} W", Icons.fitness_center, Colors.deepOrange),
             _buildDataCard("Duration", _getSessionDuration(), Icons.timer, Colors.blue),
           ],
         ),
@@ -677,7 +682,7 @@ class _SessionPageState extends State<SessionPage> {
                       childAspectRatio: aspectRatio,
                     children: [
                       _buildDataCard("Wrist Speed", "${(latestData['peakSpeed'] ?? 0.0).toStringAsFixed(1)} m/s", Icons.speed, Colors.blue),
-                      _buildDataCard("Power", "${(latestData['power'] ?? 0.0).toStringAsFixed(0)} W", Icons.bolt, Colors.orange),
+                      _buildDataCard("Power", "${(latestData['power'] ?? 0.0).toStringAsFixed(1)} W", Icons.bolt, Colors.orange),
                     ],
                     );
                   }),

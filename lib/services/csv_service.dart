@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/foundation.dart';
 
 class CSVService {
   static final CSVService _instance = CSVService._internal();
@@ -16,12 +17,14 @@ class CSVService {
   Future<File> _getLocalFile(String sport) async {
     final path = await _localPath;
     final today = DateFormat('yyyyMMdd').format(DateTime.now());
-    return File('$path/sensor_data_${sport}_$today.csv');
+    final sportKey = sport.toLowerCase();
+    return File('$path/sensor_data_${sportKey}_$today.csv');
   }
 
   Future<File> _getLocalFileForDate(String sport, String date) async {
     final path = await _localPath;
-    return File('$path/sensor_data_${sport}_$date.csv');
+    final sportKey = sport.toLowerCase();
+    return File('$path/sensor_data_${sportKey}_$date.csv');
   }
 
   Future<void> saveSensorData({
@@ -31,9 +34,10 @@ class CSVService {
     required List<double> gyr,
     required double peakSpeed,
     required int shotCount,
+    double? power,
   }) async {
     try {
-      print('Saving data for $sport at $timestamp: acc=$acc, gyr=$gyr, peakSpeed=$peakSpeed, shotCount=$shotCount');
+      debugPrint('Saving data for $sport at $timestamp: acc=$acc, gyr=$gyr, peakSpeed=$peakSpeed, shotCount=$shotCount, power=$power');
       final file = await _getLocalFile(sport);
       final exists = await file.exists();
       
@@ -44,7 +48,7 @@ class CSVService {
           'Timestamp',
           'AccX', 'AccY', 'AccZ',
           'GyroX', 'GyroY', 'GyroZ',
-          'PeakSpeed', 'ShotCount'
+          'PeakSpeed', 'ShotCount', 'Power'
         ]);
       }
 
@@ -53,19 +57,19 @@ class CSVService {
         DateFormat('yyyy-MM-dd HH:mm:ss.SSS').format(timestamp),
         acc[0], acc[1], acc[2],
         gyr[0], gyr[1], gyr[2],
-        peakSpeed, shotCount
+        peakSpeed, shotCount, power ?? 0.0
       ]);
 
       String csv = const ListToCsvConverter().convert(rows);
       if (!exists) {
         await file.writeAsString(csv);
       } else {
-        await file.writeAsString(csv + '\n', mode: FileMode.append);
+        await file.writeAsString('$csv\n', mode: FileMode.append);
       }
       
-      print('✅ CSV data saved successfully to: ${file.path}');
+      debugPrint('✅ CSV data saved successfully to: ${file.path}');
     } catch (e) {
-      print('❌ Error saving sensor data: $e');
+      debugPrint('❌ Error saving sensor data: $e');
       rethrow;
     }
   }
@@ -90,10 +94,11 @@ class CSVService {
           'gyr': [double.parse(row[4]), double.parse(row[5]), double.parse(row[6])],
           'peakSpeed': double.parse(row[7]),
           'shotCount': int.parse(row[8]),
+          'power': row.length > 9 ? double.tryParse(row[9]) ?? 0.0 : 0.0,
         };
       }).toList();
     } catch (e) {
-      print('Error reading sensor data: $e');
+      debugPrint('Error reading sensor data: $e');
       return [];
     }
   }
@@ -102,12 +107,13 @@ class CSVService {
     try {
       final directory = await getApplicationDocumentsDirectory();
       final files = await directory.list().toList();
+      final sportKey = sport.toLowerCase();
       return files
-          .where((file) => file.path.contains('sensor_data_${sport}_'))
+          .where((file) => file.path.toLowerCase().contains('sensor_data_${sportKey}_'))
           .map((file) => file.path.split('_').last.replaceAll('.csv', ''))
           .toList();
     } catch (e) {
-      print('Error getting available dates: $e');
+      debugPrint('Error getting available dates: $e');
       return [];
     }
   }
@@ -119,7 +125,7 @@ class CSVService {
         await file.delete();
       }
     } catch (e) {
-      print('Error clearing data: $e');
+      debugPrint('Error clearing data: $e');
       rethrow;
     }
   }
@@ -161,7 +167,7 @@ class CSVService {
         'rowCount': lines - 1, // Subtract header row
       };
     } catch (e) {
-      print('Error getting file info: $e');
+      debugPrint('Error getting file info: $e');
       return {
         'exists': false,
         'path': '',
@@ -174,6 +180,7 @@ class CSVService {
   }
 
   // Export CSV to a more accessible location
+  // On Android, prefer app-specific external storage in Download/SensorDataExports
   Future<String?> exportCSV(String sport, {String? date}) async {
     try {
       final sourceFile = date == null
@@ -181,29 +188,47 @@ class CSVService {
           : await _getLocalFileForDate(sport, date);
       
       if (!await sourceFile.exists()) {
-        print('❌ Source CSV file does not exist');
+        debugPrint('❌ Source CSV file does not exist');
         return null;
       }
 
-      // Get downloads directory or documents directory
+      // Determine a good export target directory
       Directory? targetDir;
-      try {
-        targetDir = await getDownloadsDirectory();
-      } catch (e) {
-        targetDir = await getApplicationDocumentsDirectory();
+      if (Platform.isAndroid) {
+        // Try external storage first (app-specific), under a Download/SensorDataExports subfolder
+        try {
+          final extDir = await getExternalStorageDirectory();
+          if (extDir != null) {
+            final downloadDir = Directory('${extDir.path}/Download');
+            if (!await downloadDir.exists()) {
+              await downloadDir.create(recursive: true);
+            }
+            final exportsDir = Directory('${downloadDir.path}/SensorDataExports');
+            if (!await exportsDir.exists()) {
+              await exportsDir.create(recursive: true);
+            }
+            targetDir = exportsDir;
+          }
+        } catch (e) {
+          // Ignore and fall back below
+        }
       }
+      // Fallbacks (Desktop/iOS/Android when external not available)
+      targetDir ??= await getDownloadsDirectory().catchError((_) => null);
+      targetDir ??= await getApplicationDocumentsDirectory();
 
       final today = DateFormat('yyyyMMdd').format(DateTime.now());
-      final fileName = 'sensor_data_${sport}_${date ?? today}_export.csv';
-      final targetFile = File('${targetDir!.path}/$fileName');
+      final sportKey = sport.toLowerCase();
+      final fileName = 'sensor_data_${sportKey}_${date ?? today}_export.csv';
+      final targetFile = File('${targetDir.path}/$fileName');
 
       // Copy the file
       await sourceFile.copy(targetFile.path);
       
-      print('✅ CSV exported to: ${targetFile.path}');
+      debugPrint('✅ CSV exported to: ${targetFile.path}');
       return targetFile.path;
     } catch (e) {
-      print('❌ Error exporting CSV: $e');
+      debugPrint('❌ Error exporting CSV: $e');
       return null;
     }
   }
@@ -216,13 +241,13 @@ class CSVService {
           : await _getLocalFileForDate(sport, date);
       
       if (!await file.exists()) {
-        print('❌ CSV file does not exist');
+        debugPrint('❌ CSV file does not exist');
         return false;
       }
 
       final contents = await file.readAsString();
       if (contents.trim().isEmpty) {
-        print('❌ CSV file is empty');
+        debugPrint('❌ CSV file is empty');
         return false;
       }
 
@@ -230,20 +255,20 @@ class CSVService {
       List<List<dynamic>> rows = const CsvToListConverter().convert(contents);
       
       if (rows.isEmpty) {
-        print('❌ CSV has no rows');
+        debugPrint('❌ CSV has no rows');
         return false;
       }
 
       // Check header
-      if (rows[0].length < 20) {
-        print('❌ CSV header is incomplete (expected 20+ columns, got ${rows[0].length})');
+      if (rows[0].length < 9) {
+        debugPrint('❌ CSV header is incomplete (expected 9+ columns, got ${rows[0].length})');
         return false;
       }
 
-      print('✅ CSV format is valid. Rows: ${rows.length}, Columns: ${rows[0].length}');
+      debugPrint('✅ CSV format is valid. Rows: ${rows.length}, Columns: ${rows[0].length}');
       return true;
     } catch (e) {
-      print('❌ CSV validation failed: $e');
+      debugPrint('❌ CSV validation failed: $e');
       return false;
     }
   }

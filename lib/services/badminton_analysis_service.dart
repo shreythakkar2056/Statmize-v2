@@ -43,6 +43,7 @@ class BadmintonAnalysisService {
       List<double> acc = data['acc'] ?? [0.0, 0.0, 0.0];
       List<double> gyr = data['gyr'] ?? [0.0, 0.0, 0.0];
       double peakSpeed = data['peakSpeed'] ?? 0.0;
+      double power = data['power'] ?? 0.0;
 
       double accMag = _calculateMagnitude(acc);
       double gyroMag = _calculateMagnitude(gyr);
@@ -58,6 +59,7 @@ class BadmintonAnalysisService {
           'acc': acc,
           'gyr': gyr,
           'peakSpeed': peakSpeed,
+          'power': power,
         });
 
         bool isSwingEnd = accMag < SWING_START_ACC_THRESHOLD * 0.5 &&
@@ -94,6 +96,14 @@ class BadmintonAnalysisService {
     try {
       Map<String, dynamic> lastData = _currentSwingData.last;
       double peakSpeed = lastData['peakSpeed'];
+      double maxPower = 0.0;
+
+      // Find the maximum power during the swing
+      for (var data in _currentSwingData) {
+        if (data['power'] != null && data['power'] > maxPower) {
+          maxPower = data['power'];
+        }
+      }
 
       // Validate swing using ESP32 parameters
       bool isValidSwing = peakSpeed >= MIN_REALISTIC_SPEED &&
@@ -106,7 +116,8 @@ class BadmintonAnalysisService {
           acc: lastData['acc'],
           gyr: lastData['gyr'],
           peakSpeed: peakSpeed,
-          shotCount: lastData['shotCount'] ?? 0,  // Add shotCount parameter
+          shotCount: 1, // Each swing analysis represents one shot
+          power: maxPower,
         );
       }
     } catch (e) {
