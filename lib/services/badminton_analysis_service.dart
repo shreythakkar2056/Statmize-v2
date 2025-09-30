@@ -94,30 +94,57 @@ class BadmintonAnalysisService {
     }
 
     try {
-      Map<String, dynamic> lastData = _currentSwingData.last;
-      double peakSpeed = lastData['peakSpeed'];
-      double maxPower = 0.0;
-
-      // Find the maximum power during the swing
+      // Find the data point with peak speed in this swing
+      Map<String, dynamic>? peakSpeedData;
+      double maxSpeed = 0.0;
+      
       for (var data in _currentSwingData) {
-        if (data['power'] != null && data['power'] > maxPower) {
-          maxPower = data['power'];
+        double currentSpeed = (data['peakSpeed'] ?? 0.0).toDouble();
+        if (currentSpeed > maxSpeed) {
+          maxSpeed = currentSpeed;
+          peakSpeedData = data;
         }
       }
 
+      if (peakSpeedData == null) {
+        _isAnalyzing = false;
+        return;
+      }
+
+      // Get the power value at the time of peak speed
+      double powerAtPeak = (peakSpeedData['power'] ?? 0.0).toDouble();
+      
+      // Also find the maximum power in a small window around the peak speed
+      // This helps account for any slight timing differences between speed and power measurements
+      int peakIndex = _currentSwingData.indexOf(peakSpeedData);
+      int windowSize = min(5, _currentSwingData.length); // Look at 5 samples around peak
+      int start = max(0, peakIndex - windowSize ~/ 2);
+      int end = min(_currentSwingData.length - 1, peakIndex + windowSize ~/ 2);
+      
+      double maxPower = 0.0;
+      for (int i = start; i <= end; i++) {
+        double currentPower = (_currentSwingData[i]['power'] ?? 0.0).toDouble();
+        if (currentPower > maxPower) {
+          maxPower = currentPower;
+        }
+      }
+
+      // Use the higher of the two power values
+      double finalPower = max(powerAtPeak, maxPower);
+
       // Validate swing using ESP32 parameters
-      bool isValidSwing = peakSpeed >= MIN_REALISTIC_SPEED &&
-                         peakSpeed <= MAX_REALISTIC_SPEED;
+      bool isValidSwing = maxSpeed >= MIN_REALISTIC_SPEED &&
+                         maxSpeed <= MAX_REALISTIC_SPEED;
 
       if (isValidSwing) {
         _csvService.saveSensorData(
           sport: 'badminton',
-          timestamp: lastData['timestamp'],
-          acc: lastData['acc'],
-          gyr: lastData['gyr'],
-          peakSpeed: peakSpeed,
+          timestamp: peakSpeedData['timestamp'],
+          acc: peakSpeedData['acc'],
+          gyr: peakSpeedData['gyr'],
+          peakSpeed: maxSpeed,
           shotCount: 1, // Each swing analysis represents one shot
-          power: maxPower,
+          power: finalPower,
         );
       }
     } catch (e) {
