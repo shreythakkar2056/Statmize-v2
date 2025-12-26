@@ -5,6 +5,7 @@ import 'package:app/services/csv_service.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'dart:async';
 
 class DeveloperPage extends StatefulWidget {
   const DeveloperPage({super.key});
@@ -18,6 +19,8 @@ class _DeveloperPageState extends State<DeveloperPage> {
   final CSVService csvService = CSVService();
   String debugMessage = '';
   List<dynamic> nearbyDevices = [];
+  StreamSubscription? _debugSubscription;
+  StreamSubscription? _devicesSubscription;
 
   // For CSV file listing
   List<String> sports = ["Cricket", "Tennis", "Badminton"];
@@ -37,16 +40,20 @@ class _DeveloperPageState extends State<DeveloperPage> {
   }
 
   void _initializeBLE() {
-    bleService.debugStream.listen((message) {
-      setState(() {
-        debugMessage = message;
-      });
+    _debugSubscription = bleService.debugStream.listen((message) {
+      if (mounted) {
+        setState(() {
+          debugMessage = message;
+        });
+      }
     });
 
-    bleService.devicesStream.listen((devices) {
-      setState(() {
-        nearbyDevices = devices;
-      });
+    _devicesSubscription = bleService.devicesStream.listen((devices) {
+      if (mounted) {
+        setState(() {
+          nearbyDevices = devices;
+        });
+      }
     });
   }
 
@@ -190,6 +197,8 @@ class _DeveloperPageState extends State<DeveloperPage> {
 
   @override
   void dispose() {
+    _debugSubscription?.cancel();
+    _devicesSubscription?.cancel();
     super.dispose();
   }
 

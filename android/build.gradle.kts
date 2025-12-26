@@ -1,4 +1,4 @@
-val kotlinVersion = "1.9.20"
+val kotlinVersion = "2.1.0"
 
 buildscript {
     repositories {
@@ -7,7 +7,7 @@ buildscript {
     }
     dependencies {
         classpath("com.android.tools.build:gradle:8.1.0")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.20")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0")
     }
 }
 

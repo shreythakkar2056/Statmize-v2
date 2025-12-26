@@ -294,12 +294,14 @@ class _SessionPageState extends State<SessionPage> {
   // Stream subscription
   StreamSubscription? _dataSubscription;
   StreamSubscription? _debugSubscription;
+  StreamSubscription? _dataRateSubscription;
 
   // State variables
   List<ShotAnalysis> _shots = [];
   Map<String, dynamic> latestData = {};
   String debugMessage = '';
   DateTime? sessionStartTime;
+  double _dataRate = 0.0;
 
   // Statistics
   double maxSpeed = 0.0;
@@ -314,6 +316,8 @@ class _SessionPageState extends State<SessionPage> {
     super.initState();
     sessionStartTime = DateTime.now();
     _setupServices();
+    // Note: START command is already sent from home_screen.dart when user clicks "Start New Session"
+    // No need to send it again here to avoid duplicate commands
   }
 
   void _setupServices() {
@@ -349,13 +353,32 @@ class _SessionPageState extends State<SessionPage> {
         });
       }
     });
+
+    // Listen to data rate
+    _dataRateSubscription = _bleService.dataRateStream.listen((rate) {
+      if (mounted) {
+        setState(() {
+          _dataRate = rate;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    // Send BLE command to end session (fire and forget)
+    _bleService.sendCommand("STOP".codeUnits).then((_) {
+      debugPrint('Sent BLE command: "STOP" (End Session)');
+    }).catchError((e) {
+      debugPrint('Failed to send end session command: $e');
+    });
+    
+    // Clean up resources (but keep BLE connection alive)
     _dataSubscription?.cancel();
     _debugSubscription?.cancel();
-    _bleService.dispose();
+    _dataRateSubscription?.cancel();
+    // Don't call _bleService.dispose() here - it disconnects the device
+    // The BLE service should remain connected for future sessions
     super.dispose();
   }
 
@@ -409,6 +432,14 @@ class _SessionPageState extends State<SessionPage> {
                           color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                         ),
                       ),
+                      if (_bleService.isConnected)
+                        Text(
+                          "Data Rate: ${_dataRate.toStringAsFixed(2)} bytes/s",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ),
                     ],
                   ),
                 ),

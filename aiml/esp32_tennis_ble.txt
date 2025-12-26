@@ -1,240 +1,367 @@
 #include <Wire.h>
-#include <ICM_20948.h>
- #include <BLEDevice.h>
+#include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEServer.h>
 #include <BLE2902.h>
+#include <MadgwickAHRS.h>
+#include <ICM20948_WE.h>
+#include <cmath>
 
-// BLE UUIDs
+#define BADMINTON
 #define SERVICE_UUID        "12345678-1234-5678-1234-56789abcdef0"
 #define CHARACTERISTIC_UUID "abcdef01-1234-5678-1234-56789abcdef0"
+#define CHARACTERISTIC_UUID_TX "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+#define CHARACTERISTIC_UUID_RX "beb5483e-36e1-4688-b7f5-ea07361b26a9"
+#define ICM20948_ADDR 0x69
+#define DEG_TO_RAD 0.0174533 
+#define SAMPLE_RATE_HZ 225.0f
+const float WRIST_TO_SENSOR_RADIUS_M = 0.05;
 
-ICM_20948_I2C imu;
+// Global objects
+Madgwick filter;
+ICM20948_WE myIMU = ICM20948_WE(ICM20948_ADDR);
 BLECharacteristic *pCharacteristic;
+BLECharacteristic *pRxCharacteristic;
 bool deviceConnected = false;
+bool isCollecting = false;
 
-// Kalman Filter class
+// Swing state machine
+enum SwingState { IDLE, SWING_IN_PROGRESS, COOLDOWN };
+SwingState currentSwingState = IDLE;
+
+// Motion tracking variables
+float peakAngularVelocity = 0.0;
+float peakLinearAcceleration = 0.0;
+float linVelX = 0.0, linVelY = 0.0, linVelZ = 0.0;
+unsigned long lastTime = 0;
+unsigned long swingStartTime = 0;
+unsigned long cooldownStartTime = 0;
+float swingPower = 0.0;
+
+// Circular buffer for pre- and post-trigger data
+const int BUFFER_SIZE = 150;
+String buffer[BUFFER_SIZE];
+int bufferIndex = 0;
+int preBufferSendCount = 0;
+
+// Trigger and ZUPT variables
+float lastAccMag = 0;
+const float SWING_START_GYRO_THRESHOLD = 300.0; 
+const float SWING_END_GYRO_THRESHOLD = 100.0;   
+const float JERK_THRESHOLD = 25.0;            
+const float ACCEL_THRESHOLD = 30.0;          
+const unsigned long MIN_SWING_DURATION_MS = 60; 
+const unsigned long MAX_SWING_DURATION_MS = 750;
+const unsigned long COOLDOWN_PERIOD_MS = 1000;  
+const unsigned long POST_TRIGGER_TIME_MS = 500;
+const float STATIONARY_ACC_THRESHOLD = 10.5;   
+const float STATIONARY_GYRO_THRESHOLD = 20.0;
+float shotCount = 0.0;
+float wristSpeed_kmh = 0.0;
+const float RACKET_MASS_KG = 0.065;
+
+// Kalman Filter Class
 class SimpleKalmanFilter {
-  float est, errEst, errMeas, q;
+private:
+    float errMeas, errEst, q, est;
+
 public:
-  SimpleKalmanFilter(float mea_e, float est_e, float q) {
-    errMeas = mea_e;
-    errEst = est_e;
-    this->q = q;
-    est = 0;
-  }
-  float update(float mea) {
-    float kalmanGain = errEst / (errEst + errMeas);
-    est = est + kalmanGain * (mea - est);
-    errEst = (1.0 - kalmanGain) * errEst + fabs(est - mea) * q;
-    return est;
-  }
+    SimpleKalmanFilter(float mea_e, float est_e, float q) {
+        errMeas = mea_e;
+        errEst = est_e;
+        this->q = q;
+        est = 0;
+    }
+
+    float update(float mea) {
+        float kalmanGain = errEst / (errEst + errMeas);
+        est = est + kalmanGain * (mea - est);
+        errEst = (1.0 - kalmanGain) * errEst + fabs(est - mea) * q;
+        return est;
+    }
 };
 
-// Kalman Filters
+// Kalman Filters for accelerometer axes
 SimpleKalmanFilter kfX(0.02, 0.05, 0.01);
 SimpleKalmanFilter kfY(0.02, 0.05, 0.01);
 SimpleKalmanFilter kfZ(0.02, 0.05, 0.01);
 
-// Constants
-const int BUFFER_SIZE = 100;
-String buffer[BUFFER_SIZE];
-int bufferIndex = 0;
+// BLE Server Callbacks
+class MyServerCallbacks : public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) {
+        deviceConnected = true;
+        Serial.println("✅ Device connected");
+    }
 
-float lastAccMag = 0;
-float lastAccX = 0, lastAccY = 0, lastAccZ = 0;
-float lastPitch = 0, lastRoll = 0;
-
-unsigned long lastTime = 0;
-unsigned long triggerStartTime = 0;
-bool triggerActive = false;
-bool preBufferSent = false;
-
-// Thresholds
-const float JERK_THRESHOLD = 50000.0;
-const float GYRO_Y_THRESHOLD = 250.0;
-const float PITCH_THRESHOLD = 20.0;
-const float ROLL_THRESHOLD = 10.0;
-const float ACCEL_THRESHOLD = 700.0;
-const unsigned long POST_TRIGGER_TIME = 1000;
-
-class MyCallbacks : public BLEServerCallbacks {
-  void onConnect(BLEServer* pServer) {
-    deviceConnected = true;
-  }
-  void onDisconnect(BLEServer* pServer) {
-    deviceConnected = false;
-    delay(100);
-    pServer->getAdvertising()->start();
-  }
+    void onDisconnect(BLEServer* pServer) {
+        deviceConnected = false;
+        // Removed auto-stop - ESP32 keeps collecting if session was active
+        Serial.println("❌ Device disconnected");
+        delay(100);
+        pServer->getAdvertising()->start();
+    }
 };
 
-void configureFSR() {
-  Wire.beginTransmission(0x69);
-  Wire.write(0x7F);  // REG_BANK_SEL_ADDR
-  Wire.write(0x20);  // Select User Bank 2
-  Wire.endTransmission();
-  delay(10);
-
-  Wire.beginTransmission(0x69);
-  Wire.write(0x01); // GYRO_CONFIG_1_ADDR
-  Wire.endTransmission(false);
-  Wire.requestFrom(0x69, 1);
-  byte gyroCfg = Wire.read();
-  gyroCfg &= ~0b00000110;
-  gyroCfg |= (0b11 << 1); // ±500 dps
-  Wire.beginTransmission(0x69);
-  Wire.write(0x01);
-  Wire.write(gyroCfg);
-  Wire.endTransmission();
-  delay(10);
-
-  Wire.beginTransmission(0x69);
-  Wire.write(0x14); // ACCEL_CONFIG_ADDR
-  Wire.endTransmission(false);
-  Wire.requestFrom(0x69, 1);
-  byte accelCfg = Wire.read();
-  accelCfg &= ~0b00000110;
-  accelCfg |= (0b11 << 1); // ±16g
-  Wire.beginTransmission(0x69);
-  Wire.write(0x14);
-  Wire.write(accelCfg);
-  Wire.endTransmission();
-  delay(10);
-
-  Wire.beginTransmission(0x69);
-  Wire.write(0x7F);
-  Wire.write(0x00);
-  Wire.endTransmission();
-  delay(10);
-}
+// BLE RX Characteristic Callbacks (for receiving commands)
+class MyCallbacks: public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic *pCharacteristic) {
+        // ✅ Binary-safe method to get the data
+        uint8_t* data = pCharacteristic->getData();
+        size_t len = pCharacteristic->getLength();
+        
+        if (len == 0) {
+            Serial.println("⚠ Received empty packet");
+            return;
+        }
+        
+        // ✅ Construct string with explicit length (binary-safe)
+        std::string rxValue((char*)data, len);
+        String rxStr = String(rxValue.c_str());
+        
+        // Debug output
+        Serial.print("📥 Received: \"");
+        Serial.print(rxStr);
+        Serial.println("\"");
+        
+        // ✅ Check for "START" command
+        if (rxStr == "START") {
+            isCollecting = true;
+            // Reset all session variables
+            shotCount = 0.0;
+            wristSpeed_kmh = 0.0;
+            swingPower = 0.0;
+            currentSwingState = IDLE;
+            linVelX = linVelY = linVelZ = 0;
+            peakAngularVelocity = 0;
+            peakLinearAcceleration = 0;
+            bufferIndex = 0;
+            preBufferSendCount = 0;
+            Serial.println("▶️ START SESSION - Data collection enabled");
+        }
+        // ✅ Check for "STOP" command
+        else if (rxStr == "STOP") {
+            isCollecting = false;
+            // Reset state
+            currentSwingState = IDLE;
+            linVelX = linVelY = linVelZ = 0;
+            peakAngularVelocity = 0;
+            peakLinearAcceleration = 0;
+            bufferIndex = 0;
+            Serial.println("⏹ STOP SESSION - Data collection disabled");
+        }
+        else {
+            Serial.println("⚠ Unknown command. Use 'START' or 'STOP'");
+        }
+    }
+};
 
 void setup() {
-  Serial.begin(115200);
-  delay(1000);
-  Wire.begin(6, 7);
+    Serial.begin(115200);
+    while (!Serial);
 
-  if (imu.begin(Wire, 0x69) != ICM_20948_Stat_Ok) {
-    while (1);
-  }
+    Wire.begin(6, 7);
+    if (!myIMU.init()) {
+        Serial.println("ICM-20948 initialization failed!");
+        while (1);
+    }
 
-  configureFSR();
+    // Configure IMU settings
+    myIMU.setAccSampleRateDivider(4);
+    myIMU.setAccRange(ICM20948_ACC_RANGE_16G);
+    myIMU.setAccDLPF(ICM20948_DLPF_6);
+    myIMU.setGyrSampleRateDivider(4);
+    myIMU.setGyrRange(ICM20948_GYRO_RANGE_2000);
+    myIMU.setGyrDLPF(ICM20948_DLPF_6);
+    myIMU.setMagOpMode(AK09916_CONT_MODE_20HZ);
 
-  BLEDevice::init("ESP32_IMU");
-  BLEDevice::setMTU(200);
-  BLEServer *pServer = BLEDevice::createServer();
-  pServer->setCallbacks(new MyCallbacks());
+    filter.begin(SAMPLE_RATE_HZ);
 
-  BLEService *pService = pServer->createService(SERVICE_UUID);
-  pCharacteristic = pService->createCharacteristic(
-    CHARACTERISTIC_UUID,
-    BLECharacteristic::PROPERTY_NOTIFY
-  );
-  pCharacteristic->addDescriptor(new BLE2902());
-  pService->start();
+    // Initialize BLE
+    BLEDevice::init("ESP32_IMU");
+    BLEDevice::setMTU(200);
+    BLEServer *pServer = BLEDevice::createServer();
+    pServer->setCallbacks(new MyServerCallbacks());
+    
+    BLEService *pService = pServer->createService(SERVICE_UUID);
+    
+    // TX Characteristic (for sending sensor data)
+    pCharacteristic = pService->createCharacteristic(
+        CHARACTERISTIC_UUID,
+        BLECharacteristic::PROPERTY_NOTIFY
+    );
+    pCharacteristic->addDescriptor(new BLE2902());
+    
+    // RX Characteristic (for receiving commands)
+    pRxCharacteristic = pService->createCharacteristic(
+        CHARACTERISTIC_UUID_RX,
+        BLECharacteristic::PROPERTY_WRITE |
+        BLECharacteristic::PROPERTY_WRITE_NR
+    );
+    
+    // Set write permissions
+    pRxCharacteristic->setAccessPermissions(ESP_GATT_PERM_WRITE);
+    pRxCharacteristic->setCallbacks(new MyCallbacks());
+    
+    // Start service AFTER adding all characteristics
+    pService->start();
+    
+    BLEAdvertising *pAdvertising = pServer->getAdvertising();
+    pAdvertising->addServiceUUID(SERVICE_UUID);
+    pAdvertising->setScanResponse(true);
+    pAdvertising->start();
 
-  BLEAdvertising *pAdvertising = pServer->getAdvertising();
-  pAdvertising->addServiceUUID(SERVICE_UUID);
-  pAdvertising->setScanResponse(true);
-  pAdvertising->start();
-
-  lastTime = millis();
+   
+    
+    lastTime = micros();
 }
 
 void loop() {
-  if (!deviceConnected || !imu.dataReady()) return;
+    if (deviceConnected && isCollecting) {
+        myIMU.readSensor();
 
-  imu.getAGMT();
-  unsigned long now = millis();
-  float dt = (now - lastTime) / 1000.0;
-  lastTime = now;
+        unsigned long now = micros();
+        float dt = (now - lastTime) / 1000000.0f;
+        if (dt <= 0) {
+            return;
+        }
+        lastTime = now;
 
-  float rawX = imu.accX();
-  float rawY = imu.accY();
-  float rawZ = imu.accZ();
-  float gyroY = imu.gyrY();
-  float magX = imu.accX();
-  float magY = imu.accY();
-  float magZ = imu.accZ();
-  float accX = kfX.update(rawX);
-  float accY = kfY.update(rawY);
-  float accZ = kfZ.update(rawZ);
+        // Get sensor data
+        xyzFloat gValue, gyr, magValue;
+        myIMU.getGValues(&gValue);
+        myIMU.getGyrValues(&gyr);
+        myIMU.getMagValues(&magValue);
 
-  float accMag = sqrt(accX * accX + accY * accY + accZ * accZ);
-  float jerk = (accMag - lastAccMag) / dt;
-  lastAccMag = accMag;
+        // Apply Kalman filters and get raw values
+        float accX = kfX.update(gValue.x * 9.81f);
+        float accY = kfY.update(gValue.y * 9.81f);
+        float accZ = kfZ.update(gValue.z * 9.81f);
+        float gyroX = gyr.x;
+        float gyroY = gyr.y;
+        float gyroZ = gyr.z;
+        float magX = magValue.x;
+        float magY = magValue.y;
+        float magZ = magValue.z;
 
-  float pitch = atan2(accY, accZ) * 180.0 / PI;
-  float roll  = atan2(accX, accZ) * 180.0 / PI;
-  float pitchRad = atan2(-accY, accZ);
-  float rollrad = atan2(-accX , accZ);
+        // Update orientation filter
+        filter.update(gyroX, gyroY, gyroZ, accX, accY, accZ, magX, magY, magZ);
 
-  float yawRad = atan2(
-    -magY * cos(rollrad) + magZ * sin(rollrad),
-     magX * cos(pitchRad) +
-     magY * sin(pitchRad) * sin(rollrad) +
-     magZ * sin(pitchRad) * cos(rollrad)
-  );
-  float yaw = yawRad * 180.0 / PI;
-  if (yaw  < 0 ) yaw +=360.0;
-  if (pitch < 0) pitch += 360.0;
-  if (roll < 0) roll += 360.0;
+        float accMag = sqrt(accX * accX + accY * accY + accZ * accZ);
+        float gyroMag = sqrt(gyroX * gyroX + gyroY * gyroY + gyroZ * gyroZ);
+        float jerk = (accMag - lastAccMag) / dt;
+        lastAccMag = accMag;
 
-  float deltaX = accX - lastAccX;
-  float deltaY = accY - lastAccY;
-  float deltaZ = accZ - lastAccZ;
-  float deltaMag = sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
-  lastAccX = accX;
-  lastAccY = accY;
-  lastAccZ = accZ;
+        // Gravity compensation to get linear acceleration
+        float q0 = filter.q0, q1 = filter.q1, q2 = filter.q2, q3 = filter.q3;
+        float gX = 2 * (q1 * q3 - q0 * q2) * 9.81f;
+        float gY = 2 * (q0 * q1 + q2 * q3) * 9.81f;
+        float gZ = (q0 * q0 - q1 * q1 - q2 * q2 + q3 * q3) * 9.81f;
 
-  float pitchChange = fabs(pitch - lastPitch);
-  float rollChange = fabs(roll - lastRoll);
-  lastPitch = pitch;
-  lastRoll = roll;
+        float linAX = accX - gX;
+        float linAY = accY - gY;
+        float linAZ = accZ - gZ;
+        float linAccMag = sqrt(linAX * linAX + linAY * linAY + linAZ * linAZ);
 
-String data = "ACC:" + String(accX, 1) + "," + String(accY, 1) + "," + String(accZ, 1) +
-                  " GYR:" + String(imu.gyrX(), 1) + "," + String(imu.gyrY(), 1) + "," + String(imu.gyrZ(), 1) +
-                  " MAG:" + String(imu.magX(), 1) + "," + String(imu.magY(), 1) + "," + String(imu.magZ(), 1) +
-                  " PITCH:" + String(pitch, 1) +  " ROLL:" + String(roll, 1) + " YAW:" + String(yaw, 1)  ;
+        // Integrate velocity only during a swing
+        if (currentSwingState == SWING_IN_PROGRESS) {
+            linVelX += linAX * dt;
+            linVelY += linAY * dt;
+            linVelZ += linAZ * dt;
+        }
 
-  buffer[bufferIndex] = data;
-  bufferIndex = (bufferIndex + 1) % BUFFER_SIZE;
+        // Zero Velocity Update (ZUPT)
+        bool isStationary = (accMag < STATIONARY_ACC_THRESHOLD && gyroMag < STATIONARY_GYRO_THRESHOLD);
+        if (isStationary) {
+            linVelX = 0;
+            linVelY = 0;
+            linVelZ = 0;
+        }
+        
+        // Create data packet
+        float speed = sqrt(linVelX * linVelX + linVelY * linVelY + linVelZ * linVelZ);
+        String data = "acc:" + String(linAX, 1) + "," + String(linAY, 1) + "," + String(linAZ, 1) + "," +
+                      "gyr:" + String(gyroX, 1) + "," + String(gyroY, 1) + "," + String(gyroZ, 1) + "," +
+                      "peakSpeed:" + String(wristSpeed_kmh, 2) + "," + 
+                      "shotCount:" + String(shotCount, 1) + "," + 
+                      "Power:" + String(swingPower, 1);
 
-  bool trigger = (abs(jerk) > JERK_THRESHOLD && abs(gyroY) > GYRO_Y_THRESHOLD) &&
-                 ((rollChange > ROLL_THRESHOLD && pitchChange > PITCH_THRESHOLD) && deltaMag > ACCEL_THRESHOLD);
+        // Always store the latest data in the circular buffer
+        buffer[bufferIndex] = data;
+        bufferIndex = (bufferIndex + 1) % BUFFER_SIZE;
 
-  if (!triggerActive && trigger) {
-    triggerActive = true;
-    triggerStartTime = now;
-    preBufferSent = false;
-  }
+        // Combined trigger condition
+        bool trigger = (gyroMag > SWING_START_GYRO_THRESHOLD && abs(jerk) > JERK_THRESHOLD && linAccMag > ACCEL_THRESHOLD);
 
-  if (triggerActive) {
-    if (!preBufferSent) {
-      for (int i = bufferIndex; i < BUFFER_SIZE; i++) {
-        Serial.println(buffer[i]);
-        pCharacteristic->setValue(buffer[i].c_str());
-        pCharacteristic->notify();
-        delay(1);
-      }
-      for (int i = 0; i < bufferIndex; i++) {
-        Serial.println(buffer[i]);
-        pCharacteristic->setValue(buffer[i].c_str());
-        pCharacteristic->notify();
-        delay(1);
-      }
-      preBufferSent = true;
+        // --- State Machine ---
+        switch (currentSwingState) {
+            case IDLE:
+                if (trigger) {
+                    currentSwingState = SWING_IN_PROGRESS;
+                    swingStartTime = now / 1000;
+                    peakAngularVelocity = gyroMag;
+                    peakLinearAcceleration = linAccMag;
+                    linVelX = linVelY = linVelZ = 0;
+                    preBufferSendCount = 0;
+                    Serial.println("🏸 Swing detected!");
+                }
+                break;
+
+            case SWING_IN_PROGRESS: {
+                if (gyroMag > peakAngularVelocity) peakAngularVelocity = gyroMag;
+                if (linAccMag > peakLinearAcceleration) peakLinearAcceleration = linAccMag;
+
+                bool isSwingTooLong = (now / 1000 - swingStartTime > MAX_SWING_DURATION_MS);
+                bool hasSwingEnded = (gyroMag < SWING_END_GYRO_THRESHOLD && (now / 1000 - swingStartTime > MIN_SWING_DURATION_MS));
+
+                if (hasSwingEnded || isSwingTooLong) {
+                    shotCount++;
+                    float peakAngularVelocityRad = peakAngularVelocity * DEG_TO_RAD;
+                    float effectiveRadius = WRIST_TO_SENSOR_RADIUS_M + 0.01 * (peakAngularVelocity / 200.0);
+                    float wristSpeedAngular = peakAngularVelocityRad * effectiveRadius;
+                    float wristSpeedLinear = sqrt(linVelX * linVelX + linVelY * linVelY + linVelZ * linVelZ);
+                    float wristSpeed_ms = 0.7 * wristSpeedAngular + 0.3 * wristSpeedLinear;
+                    wristSpeed_kmh = wristSpeed_ms * 3.6;
+                    float work = 0.5 * RACKET_MASS_KG * wristSpeed_ms * wristSpeed_ms;
+                    float swingDuration_ms = now / 1000 - swingStartTime;
+                    if (swingDuration_ms < MIN_SWING_DURATION_MS) swingDuration_ms = MIN_SWING_DURATION_MS;
+                    float swingDuration_s = swingDuration_ms / 1000.0;
+                    swingPower = (swingDuration_s > 0) ? work / swingDuration_s : 0.0;
+                    currentSwingState = COOLDOWN;
+                    cooldownStartTime = now / 1000;
+                    Serial.printf("✅ Shot #%.0f | Speed: %.1f km/h | Power: %.1f W\n", shotCount, wristSpeed_kmh, swingPower);
+                }
+                break;
+            }
+
+            case COOLDOWN:
+                if (now / 1000 - cooldownStartTime > COOLDOWN_PERIOD_MS) {
+                    currentSwingState = IDLE;
+                }
+                break;
+        }
+
+        // --- Data Transmission Logic ---
+        if (currentSwingState == SWING_IN_PROGRESS && preBufferSendCount < BUFFER_SIZE) {
+            int indexToSend = (bufferIndex + preBufferSendCount) % BUFFER_SIZE;
+            pCharacteristic->setValue(buffer[indexToSend].c_str());
+            pCharacteristic->notify();
+            preBufferSendCount++;
+        }
+        else if (currentSwingState == SWING_IN_PROGRESS || (currentSwingState == COOLDOWN && now / 1000 - swingStartTime < POST_TRIGGER_TIME_MS)) {
+            pCharacteristic->setValue(data.c_str());
+            pCharacteristic->notify();
+        }
+
+        // Enforce 225 Hz loop rate
+        unsigned long loopEnd = micros();
+        unsigned long targetDelay = (unsigned long)(1000000.0f / SAMPLE_RATE_HZ);
+        unsigned long elapsed = loopEnd - (now - dt * 1000000.0f);
+        if (elapsed < targetDelay) {
+            delayMicroseconds(targetDelay - elapsed);   
+        }
     }
-
-    Serial.println(data);
-    pCharacteristic->setValue(data.c_str());
-    pCharacteristic->notify();
-
-    if (now - triggerStartTime >= POST_TRIGGER_TIME) {
-      triggerActive = false;
+    else if (deviceConnected && !isCollecting) {
+        // Keep connection alive but don't process sensor data
+        delay(100);
     }
-  }
-
-  delay(5); // ~200 Hz
 }

@@ -4,6 +4,7 @@ import 'package:app/widgets/connection_card.dart';
 import 'package:app/services/ble_service.dart';
 import 'package:app/widgets/profile_modal.dart';
 import 'package:app/core/session_page.dart';
+import 'package:app/core/session_page.dart';
 import 'package:app_settings/app_settings.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:app/widgets/reusable/floating_navbar.dart';
@@ -257,10 +258,24 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _startNewSession() {
+  void _startNewSession() async {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
+    
+    // Check if device is connected before showing sport selection
+    final bleService = BLEService();
+    if (!bleService.isConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Device not connected. Please connect to ESP32 first.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
 
+    // Just show the sport selection modal - START command will be sent when sport is selected
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -356,12 +371,30 @@ class _HomeScreenState extends State<HomeScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () {
+        onTap: () async {
+          // Send START command to ESP32 when sport is selected
+          final bleService = BLEService();
+          if (bleService.isConnected) {
+            try {
+              await bleService.sendCommand("START".codeUnits);
+              debugPrint('Sent BLE command: "START" (Start Session) for $sport');
+            } catch (e) {
+              debugPrint('Failed to send START command: $e');
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Failed to send START command: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+              return; // Don't navigate if command failed
+            }
+          }
+          
           Navigator.pop(context);
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => SessionPage(sport: sport),  // Fixed parameter name to match SessionPage
+              builder: (context) => SessionPage(sport: sport),
             ),
           );
           ScaffoldMessenger.of(context).showSnackBar(
